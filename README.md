@@ -1051,11 +1051,11 @@ In addition to the new instructions, we'll be adding a condition code
 register. This register holds a series of bits that will be set by our
 compare instruction. The bits currently are:
 
-> 00001: Greater Than, Signed
-> 00010: Less Than, Signed
-> 00100: Equal
-> 01000: Greater Than, Unsigned
-> 10000: Less Than, Unsigned
+* 00001: Greater Than, Signed
+* 00010: Less Than, Signed
+* 00100: Equal
+* 01000: Greater Than, Unsigned
+* 10000: Less Than, Unsigned
 
 We could also probably benefit from a "Zero" bit, and we may want to
 squeeze arithmetic overlow in there at some point as well, but this
