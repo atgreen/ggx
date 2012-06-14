@@ -4,11 +4,12 @@ How To Retarget the GNU Toolchain in 21 Patches
 Preamble to the github Edition
 ------------------------------
 
-The text below originally came from a series of daily blog posts I
-wrote about porting the GNU Toolchain to a new target.  The original
-blog site is down, so I have collected the contents of the articles
-and have posted them here along with all source patches.  In
-retrospect, some of the original thinking behind this project seems
+The text below was originally written for a series of daily blog posts
+I wrote in 2008 about porting the GNU Toolchain to a new target.  The
+old blog site is down, so I have collected and re-hosted the articles
+here at github with all of the original source patches.
+
+In retrospect, some of the original thinking behind this project was
 naive, however the end result was an interesting and useful project
 that I hope others may learn from.
 
