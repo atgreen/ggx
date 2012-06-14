@@ -1041,7 +1041,9 @@ we're not using operands B and C. Perhaps we can use those 6-bits to
 hold a small constant value. That would turn some number of those
 48-bit load-immediate instructions into 16-bit instructions. There
 will be many opportunities for improvements like this, and it should
-be interesting to see how dense we can make our code.  Run Linux!
+be interesting to see how dense we can make our code.  
+
+### Run Linux!
 
 Only half joking here. Truth be told, it builds, but we're a long way
 from booting...
@@ -1150,15 +1152,14 @@ metal systems. For instance, they use file I/O to read and write
 benchmark data. So right now I think I have three options:
 
 * Modify MiBench to work more like EEMBC and run on bare metal.
-
 * Enhance my libgloss stubs to fake file I/O by using the host filesystem.
-
 * Port a simple OS like eCos to ggx, and then run that on qemu (using src/sim as the simulation core).
 
 I don't know which way to go yet. Suggestions?
 
 
-- FIN -
+FIN.
+
 
 The Adventure Continues at http://github.com/atgreen/moxiedev !
 
