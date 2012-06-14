@@ -1,5 +1,5 @@
-Anthony Green's Guide to Retargeting the GNU Toolchain in 21 Patches
-====================================================================
+How To Retargeting the GNU Toolchain in 21 Patches
+==================================================
 
 Premable to the github Edition
 ------------------------------
