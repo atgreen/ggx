@@ -4,19 +4,89 @@ How To Retarget the GNU Toolchain in 21 Patches
 Premable to the github Edition
 ------------------------------
 
-The text below originally came from a series of blog posts I wrote
-about porting the GNU Toolchain to a new target.  The original blog
-site is down, so I have collected the contents of the articles and
-have posted them here, along with the patches.  Some of the original
-thinking behind this project seems naiive in retrospect, however, the
-end result was an interesting and useful project that I hope other may
-learn from.
+The text below originally came from a series of daily blog posts I
+wrote about porting the GNU Toolchain to a new target.  The original
+blog site is down, so I have collected the contents of the articles
+and have posted them here along with all source patches.  In
+retrospect, some of the original thinking behind this project seems
+naiive, however the end result was an interesting and useful project
+that I hope others may learn from.
+
+The source patches apply to 2008-era GCC and SRC trees for the GNU
+Toolchain.  They may not be useful from a development perspective
+today, but as a teaching tool they still have value.
+
+The experimental 'ggx' target was eventually renamed to 'moxie', and
+work continues here:
+* http://moxielogic.org/blog
+* http://moxielogic.org/wiki
+* http://github.com/atgreen/moxiedev
+
+I'd love to hear from people who found this useful or who have
+questions.  I can be reached at green@moxielogic.com.
 
 Happy Hacking!
 
+Anthony Green
 
 
-[This is not complete yet]
+Preamble: Top-Down ISA Evolution
+---------------------------------
+
+The design process of an Instruction Set Architecture (ISA) has always
+struck me as being backwards. I imagine that they are mostly designed
+by hardware engineers whose decisions are largely influenced by the
+medium in which they work - hardware description languages. Every
+decision is influenced to some degree by implementation difficulty or
+limitations of the hardware.
+
+Only the lucky compiler developers have a chance to review an ISA
+before it is fixed in stone. The few times I've seen this happen it
+has always been to everyone's benefit. Perhaps there are instructions
+that the compiler could never use, or perhaps the compiler would
+generate better code if only it had some overlooked addressing mode.
+
+I've often wondered what would happen if we reversed this
+process. What would an ISA look like that was solely influenced by the
+needs of the compiler writer, without regard to the hardware side of
+the house? Instead of designing from the hardware up, start from the
+compiler and design top-down.
+
+As an experiment, I've developed the start of a GNU tools port to a
+new architecture that was wholly undefined at the start of the
+project. There was no instruction set architecture definition, no
+register file definition, no defined ABI or OS interfaces. Instead, I
+defined these things on the fly, letting things evolve naturally based
+on the needs of the compiler. The C compiler, assembler, linker,
+binutils and simulator were developed concurrently. So, for instance,
+when the compiler required an "add" instruction, each tool would be
+taught about "add" and so on.
+
+I'm going to blog a patch a day to show my progress. Each patch will
+be small and buildable. I hope to show that you can get from nothing
+to running real programs using this top-down ISA design method in a
+surprisingly short amount of time.
+
+A couple of caveats first... I am not an experienced compiler
+writer. I've been involved in many new GNU ports over the years at
+Cygnus and Red Hat, but mostly in a bizdev capacity. I have a good
+idea how all the pieces go together, but this will be my first attempt
+at it and I'm certain to botch some things. Second, I'm by no means an
+expert in ISA design. I'm taking the lazy man's route to ISA design:
+
+1. Try to build something with gcc
+2. See what the compiler is complaining about
+3. Implement it
+4. Go to 1.
+
+Every design decision is driven by whatever is easiest to
+implement. What I expect I'll end up with is a simple although wildly
+inefficient architecture. Then perhaps we can optimize this toy ISA
+based on real-world code generation. At the end of the day, however,
+my goal is for this to be a fun and interesting experiment.
+
+I'll post my first patch later today. 
+
 
 Patch 1: Naming the Target
 -------------------------
@@ -62,6 +132,7 @@ toolchain to generate ELF object files for the ggx architecture.
 The only thing this builds are some support libraries for the host
 system. It's not much, but it's a start!
 
+http://github.com/atgreen/ggx/blob/master/ggx-01-src.patch
 
 Patch 2: BFD!
 -------------
@@ -103,6 +174,7 @@ of configury changes. Click on the link below to see the patch.
 We're very close to having a working assembler for ggx. There's just
 one more infrastructure step to take care of first.
 
+http://github.com/atgreen/ggx/blob/master/ggx-03-src.patch
 
 Patch 3: Bad Instructions
 -------------------------
@@ -137,6 +209,7 @@ instruction decoder shortly.
 Before we do that, we'll take our first major step tomorrow by
 creating a working assembler.
 
+http://github.com/atgreen/ggx/blob/master/ggx-04-src.patch
 
 Patch 4: Cooking with GAS
 -------------------------
@@ -183,6 +256,8 @@ correctly. The host's objdump is similarly able to dump section
 information but, of course, it can't disassemble ggx instructions. We
 need a ggx-elf-objdump for that, and that's what we'll build tomorrow.
 
+http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
+
 
 Patch 5: binutils
 -----------------
@@ -213,6 +288,7 @@ Tomorrow we'll create a linker. We still only support one instruction
 ("bad"), but all of the toolchain infrastructure is starting to take
 shape.
 
+http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
 
 Patch 6: The Linker
 -------------------
@@ -248,6 +324,8 @@ architecture, but we've only defined a few things about it:
 We've also defined a single instruction with a bogus single byte
 encoding. Tomorrow we'll talk about instruction encodings and
 implement some basic support for encoding and decoding instructions.
+
+http://github.com/atgreen/ggx/blob/master/ggx-06-src.patch
 
 
 Patch 7: Instruction Encodings
@@ -328,6 +406,7 @@ compiler so we can assemble and run our first program on a
 simulator. Our first good (or, at least, non-"bad") instruction will
 be "load immediate". We'll do that tomorrow.
 
+http://github.com/atgreen/ggx/blob/master/ggx-08-src.patch
 
 Patch 9: Move It
 ----------------
@@ -346,6 +425,7 @@ The next two days are going to be really cool. Tomorrow we'll be
 running code on a simulator, and then we'll start building our C
 compiler!
 
+http://github.com/atgreen/ggx/blob/master/ggx-09-src.patch
 
 Patch 10: Time to Simulate
 --------------------------
@@ -406,6 +486,7 @@ immediate and register-to-register move). Tomorrow we'll have our
 first go at a C compiler. This is when things really start evolving
 faster.
 
+http://github.com/atgreen/ggx/blob/master/ggx-10-src.patch
 
 Patch 11: The Start of a C Compiler
 -----------------------------------
@@ -472,7 +553,11 @@ But now, finally..
     00000004 C myint
     00000002 C myshort
  
-That's about all it will do for now. Anything else aborts during compilation. The plan now is to try fix things up as we attempt compile increasingly complex code.
+That's about all it will do for now. Anything else aborts during
+compilation. The plan now is to try fix things up as we attempt
+compile increasingly complex code.
+
+http://github.com/atgreen/ggx/blob/master/ggx-11-gcc.patch
 
 
 Patch 12: Building and Running our First C Program
@@ -500,9 +585,21 @@ It's time to run our first program! Here's the C code:
     
     int x; /* because the sim requires a .bss section. */
 
-We have no C runtime library support yet, so we have to do things manually in our own hand-coded _start function. This would normally initialize the stack and frame pointers, and then clear .bss before calling main(). Unfortunately we don't have any instructions for writing to memory yet, so we won't be clearing .bss. There's a "bad" instruction after the call to main() in order to terminate the simulator with SIGILL. I think there's a cleaner way to terminate simulation, but it will have to wait 'til we're linking with libgloss.
+We have no C runtime library support yet, so we have to do things
+manually in our own hand-coded _start function. This would normally
+initialize the stack and frame pointers, and then clear .bss before
+calling main(). Unfortunately we don't have any instructions for
+writing to memory yet, so we won't be clearing .bss. There's a "bad"
+instruction after the call to main() in order to terminate the
+simulator with SIGILL. I think there's a cleaner way to terminate
+simulation, but it will have to wait 'til we're linking with libgloss.
 
-This code requires two new ggx instructions: jsra and ret. jsra is "Jump to SubRoutine at Absolute address" and ret is a "RETurn from subroutine" instruction. jsra is a new instruction type: GGX_F1_4. This is a FORM 1 instruction with no register operands followed by a 4-byte value (the target function address). jsra performs the following actions:
+This code requires two new ggx instructions: jsra and ret. jsra is
+"Jump to SubRoutine at Absolute address" and ret is a "RETurn from
+subroutine" instruction. jsra is a new instruction type:
+GGX_F1_4. This is a FORM 1 instruction with no register operands
+followed by a 4-byte value (the target function address). jsra
+performs the following actions:
 
 
     push the return address (next instruction) on the stack
@@ -514,7 +611,11 @@ ret does the opposite...
     pop the old frame pointer into $fp
     pop the return address into $pc
 
-Pretty simple! Keep in mind, however, that this isn't nearly enough support for proper function calls. We still need to save callee saved registers on the stack and allocate space for local variables. Let's do that later when we actually have instructions for writing to memory. We'll just avoid using local variables for now.
+Pretty simple! Keep in mind, however, that this isn't nearly enough
+support for proper function calls. We still need to save callee saved
+registers on the stack and allocate space for local variables. Let's
+do that later when we actually have instructions for writing to
+memory. We'll just avoid using local variables for now.
 
     $ ./cc1 -quiet foo.c
     $ ggx-elf-as -o foo.o foo.s
@@ -549,35 +650,65 @@ Pretty simple! Keep in mind, however, that this isn't nearly enough support for 
 
 See how we're returning 0x555 by loading it into $r0?
 
-There are two patches today. The src tree patch does some register renaming, and adds jsra and ret instruction support. The second patch updates some of the target macros and adds a couple of instruction patterns in the machine description for calls and returns.
+There are two patches today. The src tree patch does some register
+renaming, and adds jsra and ret instruction support. The second patch
+updates some of the target macros and adds a couple of instruction
+patterns in the machine description for calls and returns.
 
 Today's patch is available in the ggx patch archive.
 
 More fun tomorrow....
 
+http://github.com/atgreen/ggx/blob/master/ggx-12-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-12-gcc.patch
+
 
 Patch 13: Function Prologues and Epilogues
 ------------------------------------------
 
-Today's patch introduces a first go at proper function prologues and epilogues. The function prologue is responsible for saving callee-saved registers and allocating stack space for local variables. The function epilogue is responsible for restoring callee-saved registers and executing a ret instruction.
+Today's patch introduces a first go at proper function prologues and
+epilogues. The function prologue is responsible for saving
+callee-saved registers and allocating stack space for local
+variables. The function epilogue is responsible for restoring
+callee-saved registers and executing a ret instruction.
 
-I found this to be the toughest thing to get right so far. The trick I learned is that you have to tell the compiler about registers that don't really exist. In this case, we tell the compiler about an argument pointer register and a second frame pointer. The ggx port calls these "?ap" and "?fp". I prefixed them with ? because they won't really exist in the architecture and we'll never generate code with them. The compiler assumes that these are real registers until close to the end of compilation when it has to replace ?fp and ?ap references with $fp and $sp by computing the difference between them. This description really doesn't do it justice. Just believe me when I say it was tricky to get right.
+I found this to be the toughest thing to get right so far. The trick I
+learned is that you have to tell the compiler about registers that
+don't really exist. In this case, we tell the compiler about an
+argument pointer register and a second frame pointer. The ggx port
+calls these "?ap" and "?fp". I prefixed them with ? because they won't
+really exist in the architecture and we'll never generate code with
+them. The compiler assumes that these are real registers until close
+to the end of compilation when it has to replace ?fp and ?ap
+references with $fp and $sp by computing the difference between
+them. This description really doesn't do it justice. Just believe me
+when I say it was tricky to get right.
 
-We're introducing three new instructions in this patch: push, pop and add.l. They look like this:
+We're introducing three new instructions in this patch: push, pop and
+add.l. They look like this:
 
     push  $sp, $r2
     pop   $sp, $r2
     add.l $r1, $r2, $r3
 
-The push instruction in this example will decrement $sp by four and store $r2 at memory location $sp. (Note that the stack is growing downwards, just like on most ports).
+The push instruction in this example will decrement $sp by four and
+store $r2 at memory location $sp. (Note that the stack is growing
+downwards, just like on most ports).
 
 The pop instruction here will load $r2 with the 4-byte value stored at address $sp, and increment $sp by four.
 
 And, finally, add.l adds the contents of $r2 to $r3 and saves the answer in $r1.
 
-We use push and pop to save and restore callee-saved registers. The add.l instruction was introduced to perform stack adjustments in the prologue/epilogue.
+We use push and pop to save and restore callee-saved registers. The
+add.l instruction was introduced to perform stack adjustments in the
+prologue/epilogue.
 
-We'll end up with push/pop pair for each callee-saved register. I think we can do better some time down the road by using a single instruction to push/pop all callee-saved registers in one go. The way we do this by encoding a bitmask of the registers we need to save in the push instruction (and similarly in the pop instruction). Let's save that trick of later.
+We'll end up with push/pop pair for each callee-saved register. I
+think we can do better some time down the road by using a single
+instruction to push/pop all callee-saved registers in one go. The way
+we do this by encoding a bitmask of the registers we need to save in
+the push instruction (and similarly in the pop instruction). Let's
+save that trick of later.
 
 Now, given this C code:
 
@@ -606,6 +737,8 @@ calls. (Note: just as I was writing this, I realized that 64-bit
 integrals may be returned in $r0 and $r1, so $r1 shouldn't be
 callee-saved either. I'll fix this tomorrow.)
 
+http://github.com/atgreen/ggx/blob/master/ggx-13-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-13-gcc.patch
 
 Patch 14: Loading and Storing
 -----------------------------
@@ -702,6 +835,8 @@ dedicated to storing operands 3 through 6 to the stack (1 and 2 are
 passed in registers $r0 and $r1). We can do better by introducing
 indirect offset addressing. That's what we'll do tomorrow.
 
+http://github.com/atgreen/ggx/blob/master/ggx-14-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-14-gcc.patch
 
 Patch 15: A Simpler Way to Load and Store
 -----------------------------------------
@@ -778,6 +913,8 @@ straight-line code. Tomorrow we'll add compare and branch
 instructions, and soon we'll be building libgcc: GCC's runtime support
 library.
 
+http://github.com/atgreen/ggx/blob/master/ggx-15-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-15-gcc.patch
 
 
 Patch 16: if... then... else...
@@ -852,6 +989,8 @@ sizes (short words and bytes). This is what we'll add tomorrow. Once
 we've built libgcc, we'll move on the newlib and libgloss. We're very
 close to running a real "Hello World" app!
 
+http://github.com/atgreen/ggx/blob/master/ggx-16-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-16-gcc.patch
 
 Patch 17: Bytes, Shorts, and Some Cleanup
 -----------------------------------------
@@ -907,6 +1046,8 @@ behaviour, but it does let us rip out a bunch of repetitive code.
 (Thanks to Hans-Peter and Paolo for their feedback and advice on this
 last patch)
 
+http://github.com/atgreen/ggx/blob/master/ggx-18-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-18-gcc.patch
 
 Patch 19: Hello World!
 ----------------------
@@ -1070,6 +1211,9 @@ I hope some people have found this series interesting. I'm interested
 in hearing feedback if you are so inspired.
 
 
+http://github.com/atgreen/ggx/blob/master/ggx-19-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-19-gcc.patch
+
 Patch 20: The GCC Testsuite and Cooperative Multitasking
 --------------------------------------------------------
 
@@ -1132,6 +1276,7 @@ without a hitch:
 
 44k instructions! This is most we've run so far...
 
+http://github.com/atgreen/ggx/blob/master/ggx-20-src.patch
 
 Patch 21: Trampolines, Benchmarks, and Rebasing Patches
 -------------------------------------------------------
@@ -1166,6 +1311,10 @@ benchmark data. So right now I think I have three options:
 * Port a simple OS like eCos to ggx, and then run that on qemu (using src/sim as the simulation core).
 
 I don't know which way to go yet. Suggestions?
+
+Today's patches are cummulative patches for all of src and gcc:
+http://github.com/atgreen/ggx/blob/master/ggx-21-src.patch
+http://github.com/atgreen/ggx/blob/master/ggx-21-gcc.patch
 
 
 FIN.
