@@ -27,8 +27,9 @@ questions.  I can be reached at green@moxielogic.com.
 
 Happy Hacking!
 
-Anthony Green
+**Anthony Green**
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Preamble: Top-Down ISA Evolution
 ---------------------------------
@@ -86,6 +87,8 @@ based on real-world code generation. At the end of the day, however,
 my goal is for this to be a fun and interesting experiment.
 
 I'll post my first patch later today. 
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 
 Patch 1: Naming the Target
