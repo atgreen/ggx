@@ -1,7 +1,7 @@
 How To Retarget the GNU Toolchain in 21 Patches
 ===============================================
 
-Premable to the github Edition
+Preamble to the github Edition
 ------------------------------
 
 The text below originally came from a series of daily blog posts I
@@ -9,7 +9,7 @@ wrote about porting the GNU Toolchain to a new target.  The original
 blog site is down, so I have collected the contents of the articles
 and have posted them here along with all source patches.  In
 retrospect, some of the original thinking behind this project seems
-naiive, however the end result was an interesting and useful project
+naive, however the end result was an interesting and useful project
 that I hope others may learn from.
 
 The source patches apply to 2008-era GCC and SRC trees for the GNU
