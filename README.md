@@ -1455,5 +1455,4 @@ Patches:
 FIN.
 
 
-The Adventure Continues at http://github.com/atgreen/moxiedev !
-
+The Adventure Continues at http://github.com/atgreen/moxiedev
