@@ -1,5 +1,5 @@
-How To Retargeting the GNU Toolchain in 21 Patches
-==================================================
+How To Retarget the GNU Toolchain in 21 Patches
+===============================================
 
 Premable to the github Edition
 ------------------------------
