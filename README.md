@@ -72,9 +72,10 @@ BFD".
 Now we have to make some real decisions about the ggx architecture,
 but not very difficult ones. The most significant features we're
 committing to in this patch are 32-bit words, 32-bit addresses and
-8-bit bytes (see cpu-ggx.c). Two reasons for picking these values: (1)
-the GNU tools are really good at targeting 32-bit systems and (2) 8-
-and 16-bit systems won't run any interesting Free Software.
+8-bit bytes (see cpu-ggx.c). Two reasons for picking these values: 
+
+1. the GNU tools are really good at targeting 32-bit systems and 
+2. 8- and 16-bit systems won't run any interesting Free Software.
 
 Also note that we're defining the ELF machine number for ggx (0xFEED
 in include/elf/common.h). This number is encoded in all ggx object
