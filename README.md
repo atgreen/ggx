@@ -1,5 +1,5 @@
-How To Retarget the GNU Toolchain in 21 Patches
-===============================================
+Anthony Green's Guide to Retargeting the GNU Toolchain in 21 Patches
+====================================================================
 
 Premable to the github Edition
 ------------------------------
@@ -138,6 +138,8 @@ system. It's not much, but it's a start!
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-01-src.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 Patch 2: BFD!
 -------------
 
@@ -181,6 +183,8 @@ one more infrastructure step to take care of first.
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-03-src.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 Patch 3: Bad Instructions
 -------------------------
 
@@ -216,6 +220,8 @@ creating a working assembler.
 
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-04-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 4: Cooking with GAS
 -------------------------
@@ -265,6 +271,7 @@ need a ggx-elf-objdump for that, and that's what we'll build tomorrow.
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 5: binutils
 -----------------
@@ -297,6 +304,8 @@ shape.
 
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 6: The Linker
 -------------------
@@ -336,6 +345,8 @@ implement some basic support for encoding and decoding instructions.
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-06-src.patch
 
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 7: Instruction Encodings
 ------------------------------
@@ -416,7 +427,91 @@ simulator. Our first good (or, at least, non-"bad") instruction will
 be "load immediate". We'll do that tomorrow.
 
 Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-07-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+Patch 8: A First Real Instruction
+---------------------------------
+
+Yesterday we decided that the ggx core will have eight general purpose
+registers. Let's name them $r0 to $r7.
+
+It's time to add our first real instruction. We're going to implement
+a "Load Immediate" instruction. This will extract an integer value
+from the instruction stream and load it into a register. We'll use
+syntax like this:
+
+    ldi.l $r1, 0x555
+
+The ".l" suffix means "long word" (4 bytes). So "ldi.l" is "Load
+Immediate Long Word", and "ldi.l $r1, 0x555" will put the 4-byte value
+0x555 into register $r1.
+
+We're going to encode the "0x555" part in the instruction stream
+immediately after the 16-bit instruction, so "ldi.l $r1, 0x555" is
+really a 48-bit instruction.
+
+Now we need to implement our first fixup. A fixup is a placeholder in
+the instruction stream that gets populated with a value at the tail
+end of assembly. In this case we need a fixup to tell the assembler
+how to encode our 0x555 immediate value in the instruction
+stream. Some fixups can't be resolved at assembly time, so the the
+assembler turns them into "relocations" (or relocs).
+
+Consider, for instance, the following instruction:
+
+    _start:     ldi.l $r1, _start+0x10
+
+We don't know where _start will end up in memory until link time, so
+the assembler generates a reloc that gets computed at link time.
+
+We don't need to worry too much about how this all works. However, we
+do need to describe the basic relocs required by our port. In this
+case, we simply need a 32-bit reloc that we'll call R_GGX_DIR32. This
+patch contains all of the bfd changes necessary to implement 32-bit
+relocations. Eventually we'll need a different one to fill the 12-bit
+value part of FORM 2 instructions.
+
+We also define a new instruction type, GGX_F1_A4, which is FORM 1
+instruction using operand A followed by a 4-byte value. We teach
+opcodes how to disassemble GGX_F1_A4 instructions, and we teach the
+assembler how to parse and encode them.
+
+Finally, we update our opcode table to include "ldi.l", defining it as
+a GGX_F1_A4 instruction.
+
+Here are our main tools in action: the assembler, linker and objdump:
+
+
+    $ cat foo.s
+            .global _start
+    .text
+    _start: ldi.l $r1, 0x555
+            ldi.l $r2, 0x111+0x222
+            ldi.l $r3, _start+0x10
+    $ ggx-elf-as -o foo.o foo.s && ggx-elf-ld -o foo foo.o
+    $ ggx-elf-objdump -d foo
+    
+    foo:     file format elf32-ggx
+    
+    Disassembly of section .text:
+    
+    00001054 <_start>:
+        1054:       00 40 00 00     ldi.l   $r1, 0x555
+        1058:       05 55
+        105a:       00 80 00 00     ldi.l   $r2, 0x333
+        105e:       03 33
+        1060:       00 c0 00 00     ldi.l   $r3, 0x1064
+        1064:       10 64 
+
+Fantastico! Tomorrow we'll add one more unsolicited instruction, and
+then we'll build our simulator...
+
+Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-08-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 9: Move It
 ----------------
@@ -437,6 +532,8 @@ compiler!
 
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-09-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 10: Time to Simulate
 --------------------------
@@ -499,6 +596,8 @@ faster.
 
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-10-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 11: The Start of a C Compiler
 -----------------------------------
@@ -572,6 +671,7 @@ compile increasingly complex code.
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-11-gcc.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 12: Building and Running our First C Program
 ---------------------------------------------------
@@ -676,6 +776,7 @@ Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-12-src.patch
 * http://github.com/atgreen/ggx/blob/master/ggx-12-gcc.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 13: Function Prologues and Epilogues
 ------------------------------------------
@@ -754,6 +855,8 @@ callee-saved either. I'll fix this tomorrow.)
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-13-src.patch
 * http://github.com/atgreen/ggx/blob/master/ggx-13-gcc.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 14: Loading and Storing
 -----------------------------
@@ -854,6 +957,8 @@ Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-14-src.patch
 * http://github.com/atgreen/ggx/blob/master/ggx-14-gcc.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 Patch 15: A Simpler Way to Load and Store
 -----------------------------------------
 
@@ -934,6 +1039,8 @@ Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-15-gcc.patch
 
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 Patch 16: if... then... else...
 -------------------------------
 
@@ -1010,6 +1117,8 @@ Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-16-src.patch
 * http://github.com/atgreen/ggx/blob/master/ggx-16-gcc.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 Patch 17: Bytes, Shorts, and Some Cleanup
 -----------------------------------------
 
@@ -1067,6 +1176,8 @@ last patch)
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-18-src.patch
 * http://github.com/atgreen/ggx/blob/master/ggx-18-gcc.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 19: Hello World!
 ----------------------
@@ -1233,6 +1344,8 @@ Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-19-src.patch
 * http://github.com/atgreen/ggx/blob/master/ggx-19-gcc.patch
 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 Patch 20: The GCC Testsuite and Cooperative Multitasking
 --------------------------------------------------------
 
@@ -1297,6 +1410,8 @@ without a hitch:
 
 Patches:
 * http://github.com/atgreen/ggx/blob/master/ggx-20-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 Patch 21: Trampolines, Benchmarks, and Rebasing Patches
 -------------------------------------------------------
