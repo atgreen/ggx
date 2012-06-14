@@ -132,7 +132,8 @@ toolchain to generate ELF object files for the ggx architecture.
 The only thing this builds are some support libraries for the host
 system. It's not much, but it's a start!
 
-http://github.com/atgreen/ggx/blob/master/ggx-01-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-01-src.patch
 
 Patch 2: BFD!
 -------------
@@ -174,7 +175,8 @@ of configury changes. Click on the link below to see the patch.
 We're very close to having a working assembler for ggx. There's just
 one more infrastructure step to take care of first.
 
-http://github.com/atgreen/ggx/blob/master/ggx-03-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-03-src.patch
 
 Patch 3: Bad Instructions
 -------------------------
@@ -209,7 +211,8 @@ instruction decoder shortly.
 Before we do that, we'll take our first major step tomorrow by
 creating a working assembler.
 
-http://github.com/atgreen/ggx/blob/master/ggx-04-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-04-src.patch
 
 Patch 4: Cooking with GAS
 -------------------------
@@ -256,7 +259,8 @@ correctly. The host's objdump is similarly able to dump section
 information but, of course, it can't disassemble ggx instructions. We
 need a ggx-elf-objdump for that, and that's what we'll build tomorrow.
 
-http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
 
 
 Patch 5: binutils
@@ -288,7 +292,8 @@ Tomorrow we'll create a linker. We still only support one instruction
 ("bad"), but all of the toolchain infrastructure is starting to take
 shape.
 
-http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
 
 Patch 6: The Linker
 -------------------
@@ -325,7 +330,8 @@ We've also defined a single instruction with a bogus single byte
 encoding. Tomorrow we'll talk about instruction encodings and
 implement some basic support for encoding and decoding instructions.
 
-http://github.com/atgreen/ggx/blob/master/ggx-06-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-06-src.patch
 
 
 Patch 7: Instruction Encodings
@@ -406,7 +412,8 @@ compiler so we can assemble and run our first program on a
 simulator. Our first good (or, at least, non-"bad") instruction will
 be "load immediate". We'll do that tomorrow.
 
-http://github.com/atgreen/ggx/blob/master/ggx-08-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-08-src.patch
 
 Patch 9: Move It
 ----------------
@@ -425,7 +432,8 @@ The next two days are going to be really cool. Tomorrow we'll be
 running code on a simulator, and then we'll start building our C
 compiler!
 
-http://github.com/atgreen/ggx/blob/master/ggx-09-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-09-src.patch
 
 Patch 10: Time to Simulate
 --------------------------
@@ -486,7 +494,8 @@ immediate and register-to-register move). Tomorrow we'll have our
 first go at a C compiler. This is when things really start evolving
 faster.
 
-http://github.com/atgreen/ggx/blob/master/ggx-10-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-10-src.patch
 
 Patch 11: The Start of a C Compiler
 -----------------------------------
@@ -557,7 +566,8 @@ That's about all it will do for now. Anything else aborts during
 compilation. The plan now is to try fix things up as we attempt
 compile increasingly complex code.
 
-http://github.com/atgreen/ggx/blob/master/ggx-11-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-11-gcc.patch
 
 
 Patch 12: Building and Running our First C Program
@@ -659,8 +669,9 @@ Today's patch is available in the ggx patch archive.
 
 More fun tomorrow....
 
-http://github.com/atgreen/ggx/blob/master/ggx-12-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-12-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-12-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-12-gcc.patch
 
 
 Patch 13: Function Prologues and Epilogues
@@ -737,8 +748,9 @@ calls. (Note: just as I was writing this, I realized that 64-bit
 integrals may be returned in $r0 and $r1, so $r1 shouldn't be
 callee-saved either. I'll fix this tomorrow.)
 
-http://github.com/atgreen/ggx/blob/master/ggx-13-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-13-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-13-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-13-gcc.patch
 
 Patch 14: Loading and Storing
 -----------------------------
@@ -835,8 +847,9 @@ dedicated to storing operands 3 through 6 to the stack (1 and 2 are
 passed in registers $r0 and $r1). We can do better by introducing
 indirect offset addressing. That's what we'll do tomorrow.
 
-http://github.com/atgreen/ggx/blob/master/ggx-14-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-14-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-14-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-14-gcc.patch
 
 Patch 15: A Simpler Way to Load and Store
 -----------------------------------------
@@ -913,8 +926,9 @@ straight-line code. Tomorrow we'll add compare and branch
 instructions, and soon we'll be building libgcc: GCC's runtime support
 library.
 
-http://github.com/atgreen/ggx/blob/master/ggx-15-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-15-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-15-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-15-gcc.patch
 
 
 Patch 16: if... then... else...
@@ -989,8 +1003,9 @@ sizes (short words and bytes). This is what we'll add tomorrow. Once
 we've built libgcc, we'll move on the newlib and libgloss. We're very
 close to running a real "Hello World" app!
 
-http://github.com/atgreen/ggx/blob/master/ggx-16-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-16-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-16-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-16-gcc.patch
 
 Patch 17: Bytes, Shorts, and Some Cleanup
 -----------------------------------------
@@ -1046,8 +1061,9 @@ behaviour, but it does let us rip out a bunch of repetitive code.
 (Thanks to Hans-Peter and Paolo for their feedback and advice on this
 last patch)
 
-http://github.com/atgreen/ggx/blob/master/ggx-18-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-18-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-18-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-18-gcc.patch
 
 Patch 19: Hello World!
 ----------------------
@@ -1210,9 +1226,9 @@ the ISA.
 I hope some people have found this series interesting. I'm interested
 in hearing feedback if you are so inspired.
 
-
-http://github.com/atgreen/ggx/blob/master/ggx-19-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-19-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-19-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-19-gcc.patch
 
 Patch 20: The GCC Testsuite and Cooperative Multitasking
 --------------------------------------------------------
@@ -1276,7 +1292,8 @@ without a hitch:
 
 44k instructions! This is most we've run so far...
 
-http://github.com/atgreen/ggx/blob/master/ggx-20-src.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-20-src.patch
 
 Patch 21: Trampolines, Benchmarks, and Rebasing Patches
 -------------------------------------------------------
@@ -1312,9 +1329,9 @@ benchmark data. So right now I think I have three options:
 
 I don't know which way to go yet. Suggestions?
 
-Today's patches are cummulative patches for all of src and gcc:
-http://github.com/atgreen/ggx/blob/master/ggx-21-src.patch
-http://github.com/atgreen/ggx/blob/master/ggx-21-gcc.patch
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-21-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-21-gcc.patch
 
 
 FIN.
