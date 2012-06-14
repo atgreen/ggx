@@ -1,0 +1,404 @@
+diff -r 8656263dd6bb ChangeLog.ggx
+--- a/ChangeLog.ggx	Tue Mar 11 14:34:32 2008 -0700
++++ b/ChangeLog.ggx	Tue Mar 11 14:34:59 2008 -0700
+@@ -1,3 +1,8 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* configure.ac: Build bfd.
++	* configure: Rebuilt.
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config.sub: Add ggx support.
+diff -r 8656263dd6bb bfd/ChangeLog.ggx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/bfd/ChangeLog.ggx	Tue Mar 11 14:34:59 2008 -0700
+@@ -0,0 +1,12 @@
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* targets.c: Add ggx support.
++	* Makefile.am: Ditto.
++	* Makefile.in: Rebuilt.
++	* cpu-ggx.c, elf32-ggx.c: New files.
++	* archures.c: Add ggx support.
++	* configure.in: Add ggx support.
++	* configure: Rebuilt.
++	* config.bfd, archures.c: Add ggx support.
++	* bfd-in2.h: Rebuilt.
++
+diff -r 8656263dd6bb bfd/Makefile.am
+--- a/bfd/Makefile.am	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/Makefile.am	Tue Mar 11 14:34:59 2008 -0700
+@@ -73,6 +73,7 @@ ALL_MACHINES = \
+ 	cpu-dlx.lo \
+ 	cpu-fr30.lo \
+ 	cpu-frv.lo \
++	cpu-ggx.lo \
+ 	cpu-h8300.lo \
+ 	cpu-h8500.lo \
+ 	cpu-hppa.lo \
+@@ -139,6 +140,7 @@ ALL_MACHINES_CFILES = \
+ 	cpu-dlx.c \
+ 	cpu-fr30.c \
+ 	cpu-frv.c \
++	cpu-ggx.c \
+ 	cpu-h8300.c \
+ 	cpu-h8500.c \
+ 	cpu-hppa.c \
+@@ -255,6 +257,7 @@ BFD32_BACKENDS = \
+ 	elf32-dlx.lo \
+ 	elf32-fr30.lo \
+ 	elf32-frv.lo \
++	elf32-ggx.lo \
+ 	elf32-gen.lo \
+ 	elf32-h8300.lo \
+ 	elf32-hppa.lo \
+@@ -436,6 +439,7 @@ BFD32_BACKENDS_CFILES = \
+ 	elf32-dlx.c \
+ 	elf32-fr30.c \
+ 	elf32-frv.c \
++	elf32-ggx.c \
+ 	elf32-gen.c \
+ 	elf32-h8300.c \
+ 	elf32-hppa.c \
+@@ -1081,6 +1085,7 @@ cpu-dlx.lo: cpu-dlx.c $(INCDIR)/filename
+ cpu-dlx.lo: cpu-dlx.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-fr30.lo: cpu-fr30.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-frv.lo: cpu-frv.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
++cpu-ggx.lo: cpu-ggx.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-h8300.lo: cpu-h8300.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-h8500.lo: cpu-h8500.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-hppa.lo: cpu-hppa.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+@@ -1381,6 +1386,11 @@ elf32-frv.lo: elf32-frv.c $(INCDIR)/file
+ elf32-frv.lo: elf32-frv.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h \
+   elf-bfd.h $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h \
+   $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h $(INCDIR)/elf/frv.h \
++  $(INCDIR)/elf/reloc-macros.h $(INCDIR)/elf/dwarf2.h \
++  elf32-target.h
++elf32-ggx.lo: elf32-ggx.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h \
++  elf-bfd.h $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h \
++  $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h $(INCDIR)/elf/ggx.h \
+   $(INCDIR)/elf/reloc-macros.h $(INCDIR)/elf/dwarf2.h \
+   elf32-target.h
+ elf32-gen.lo: elf32-gen.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h \
+diff -r 8656263dd6bb bfd/Makefile.in
+--- a/bfd/Makefile.in	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/Makefile.in	Tue Mar 11 14:34:59 2008 -0700
+@@ -323,6 +323,7 @@ ALL_MACHINES = \
+ 	cpu-dlx.lo \
+ 	cpu-fr30.lo \
+ 	cpu-frv.lo \
++	cpu-ggx.lo \
+ 	cpu-h8300.lo \
+ 	cpu-h8500.lo \
+ 	cpu-hppa.lo \
+@@ -389,6 +390,7 @@ ALL_MACHINES_CFILES = \
+ 	cpu-dlx.c \
+ 	cpu-fr30.c \
+ 	cpu-frv.c \
++	cpu-ggx.c \
+ 	cpu-h8300.c \
+ 	cpu-h8500.c \
+ 	cpu-hppa.c \
+@@ -506,6 +508,7 @@ BFD32_BACKENDS = \
+ 	elf32-dlx.lo \
+ 	elf32-fr30.lo \
+ 	elf32-frv.lo \
++	elf32-ggx.lo \
+ 	elf32-gen.lo \
+ 	elf32-h8300.lo \
+ 	elf32-hppa.lo \
+@@ -687,6 +690,7 @@ BFD32_BACKENDS_CFILES = \
+ 	elf32-dlx.c \
+ 	elf32-fr30.c \
+ 	elf32-frv.c \
++	elf32-ggx.c \
+ 	elf32-gen.c \
+ 	elf32-h8300.c \
+ 	elf32-hppa.c \
+@@ -1662,6 +1666,7 @@ cpu-dlx.lo: cpu-dlx.c $(INCDIR)/filename
+ cpu-dlx.lo: cpu-dlx.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-fr30.lo: cpu-fr30.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-frv.lo: cpu-frv.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
++cpu-ggx.lo: cpu-ggx.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-h8300.lo: cpu-h8300.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-h8500.lo: cpu-h8500.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+ cpu-hppa.lo: cpu-hppa.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h
+@@ -1962,6 +1967,11 @@ elf32-frv.lo: elf32-frv.c $(INCDIR)/file
+ elf32-frv.lo: elf32-frv.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h \
+   elf-bfd.h $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h \
+   $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h $(INCDIR)/elf/frv.h \
++  $(INCDIR)/elf/reloc-macros.h $(INCDIR)/elf/dwarf2.h \
++  elf32-target.h
++elf32-ggx.lo: elf32-ggx.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h \
++  elf-bfd.h $(INCDIR)/elf/common.h $(INCDIR)/elf/internal.h \
++  $(INCDIR)/elf/external.h $(INCDIR)/bfdlink.h $(INCDIR)/elf/ggx.h \
+   $(INCDIR)/elf/reloc-macros.h $(INCDIR)/elf/dwarf2.h \
+   elf32-target.h
+ elf32-gen.lo: elf32-gen.c $(INCDIR)/filenames.h $(INCDIR)/hashtab.h \
+diff -r 8656263dd6bb bfd/archures.c
+--- a/bfd/archures.c	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/archures.c	Tue Mar 11 14:34:59 2008 -0700
+@@ -327,6 +327,8 @@ DESCRIPTION
+ .#define bfd_mach_frvtomcat	499	{* fr500 prototype *}
+ .#define bfd_mach_fr500		500
+ .#define bfd_mach_fr550		550
++.  bfd_arch_ggx,       {* The ggx processor *}
++.#define bfd_mach_ggx		1
+ .  bfd_arch_mcore,
+ .  bfd_arch_mep,
+ .#define bfd_mach_mep		1
+@@ -454,6 +456,7 @@ extern const bfd_arch_info_type bfd_dlx_
+ extern const bfd_arch_info_type bfd_dlx_arch;
+ extern const bfd_arch_info_type bfd_fr30_arch;
+ extern const bfd_arch_info_type bfd_frv_arch;
++extern const bfd_arch_info_type bfd_ggx_arch;
+ extern const bfd_arch_info_type bfd_h8300_arch;
+ extern const bfd_arch_info_type bfd_h8500_arch;
+ extern const bfd_arch_info_type bfd_hppa_arch;
+@@ -525,6 +528,7 @@ static const bfd_arch_info_type * const 
+     &bfd_dlx_arch,
+     &bfd_fr30_arch,
+     &bfd_frv_arch,
++    &bfd_ggx_arch,
+     &bfd_h8300_arch,
+     &bfd_h8500_arch,
+     &bfd_hppa_arch,
+diff -r 8656263dd6bb bfd/bfd-in2.h
+--- a/bfd/bfd-in2.h	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/bfd-in2.h	Tue Mar 11 14:34:59 2008 -0700
+@@ -2004,6 +2004,8 @@ enum bfd_architecture
+ #define bfd_mach_frvtomcat     499     /* fr500 prototype */
+ #define bfd_mach_fr500         500
+ #define bfd_mach_fr550         550
++  bfd_arch_ggx,     /* The ggx.  */
++#define bfd_mach_ggx         1
+   bfd_arch_mcore,
+   bfd_arch_mep,
+ #define bfd_mach_mep           1
+diff -r 8656263dd6bb bfd/config.bfd
+--- a/bfd/config.bfd	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/config.bfd	Tue Mar 11 14:34:59 2008 -0700
+@@ -408,6 +408,10 @@ case "${targ}" in
+     targ_selvecs=bfd_elf32_frv_vec
+     ;;
+ 
++  ggx-*-elf)
++    targ_defvec=bfd_elf32_ggx_vec
++    ;;
++
+   h8300*-*-rtemscoff*)
+     targ_defvec=h8300coff_vec
+     targ_underscore=yes
+diff -r 8656263dd6bb bfd/configure
+--- a/bfd/configure	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/configure	Tue Mar 11 14:34:59 2008 -0700
+@@ -19050,6 +19050,7 @@ do
+     bfd_elf32_fr30_vec)		tb="$tb elf32-fr30.lo elf32.lo $elf" ;;
+     bfd_elf32_frv_vec)		tb="$tb elf32-frv.lo elf32.lo $elf" ;;
+     bfd_elf32_frvfdpic_vec)	tb="$tb elf32-frv.lo elf32.lo $elf" ;;
++    bfd_elf32_ggx_vec)	tb="$tb elf32-ggx.lo elf32.lo $elf" ;;
+     bfd_elf32_h8300_vec)	tb="$tb elf32-h8300.lo elf32.lo $elf" ;;
+     bfd_elf32_hppa_linux_vec)	tb="$tb elf32-hppa.lo elf32.lo $elf" ;;
+     bfd_elf32_hppa_nbsd_vec)	tb="$tb elf32-hppa.lo elf32.lo $elf" ;;
+diff -r 8656263dd6bb bfd/configure.in
+--- a/bfd/configure.in	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/configure.in	Tue Mar 11 14:34:59 2008 -0700
+@@ -659,6 +659,7 @@ do
+     bfd_elf32_fr30_vec)		tb="$tb elf32-fr30.lo elf32.lo $elf" ;;
+     bfd_elf32_frv_vec)		tb="$tb elf32-frv.lo elf32.lo $elf" ;;
+     bfd_elf32_frvfdpic_vec)	tb="$tb elf32-frv.lo elf32.lo $elf" ;;
++    bfd_elf32_ggx_vec)	tb="$tb elf32-ggx.lo elf32.lo $elf" ;;
+     bfd_elf32_h8300_vec)	tb="$tb elf32-h8300.lo elf32.lo $elf" ;;
+     bfd_elf32_hppa_linux_vec)	tb="$tb elf32-hppa.lo elf32.lo $elf" ;;
+     bfd_elf32_hppa_nbsd_vec)	tb="$tb elf32-hppa.lo elf32.lo $elf" ;;
+diff -r 8656263dd6bb bfd/cpu-ggx.c
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/bfd/cpu-ggx.c	Tue Mar 11 14:34:59 2008 -0700
+@@ -0,0 +1,40 @@
++/* BFD support for the ggx processor.
++   Copyright 2008 Free Software Foundation, Inc.
++   Written by Anthony Green
++
++   This file is part of BFD, the Binary File Descriptor library.
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software Foundation,
++   Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
++
++#include "sysdep.h"
++#include "bfd.h"
++#include "libbfd.h"
++
++
++const bfd_arch_info_type bfd_ggx_arch =
++  {
++    32,               /* 32 bits in a word.  */
++    32,               /* 32 bits in an address.  */
++    8,                /*  8 bits in a byte.  */
++    bfd_arch_ggx,   /* enum bfd_architecture arch.  */
++    bfd_mach_ggx,
++    "ggx",          /* Arch name.  */
++    "ggx",          /* Printable name.  */
++    2,                /* Unsigned int section alignment power.  */
++    TRUE,             /* The one and only.  */
++    bfd_default_compatible, 
++    bfd_default_scan ,
++    0,
++  };
+diff -r 8656263dd6bb bfd/elf32-ggx.c
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/bfd/elf32-ggx.c	Tue Mar 11 14:34:59 2008 -0700
+@@ -0,0 +1,35 @@
++/* ggx support for 32-bit ELF
++   Copyright 2008 Free Software Foundation, Inc.
++
++   This file is part of BFD, the Binary File Descriptor library.
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston,
++   MA 02110-1301, USA.  */
++
++#include "sysdep.h"
++#include "bfd.h"
++#include "libbfd.h"
++#include "elf-bfd.h"
++
++#define TARGET_BIG_SYM		bfd_elf32_ggx_vec
++#define TARGET_BIG_NAME		"elf32-ggx"
++#define ELF_ARCH		bfd_arch_ggx
++#define ELF_MACHINE_CODE	EM_GGX
++#define ELF_MAXPAGESIZE  	1
++#define bfd_elf32_bfd_reloc_type_lookup bfd_default_reloc_type_lookup
++#define bfd_elf32_bfd_reloc_name_lookup _bfd_norelocs_bfd_reloc_name_lookup
++#define elf_info_to_howto		_bfd_elf_no_info_to_howto
++
++#include "elf32-target.h"
+diff -r 8656263dd6bb bfd/targets.c
+--- a/bfd/targets.c	Tue Mar 11 14:34:32 2008 -0700
++++ b/bfd/targets.c	Tue Mar 11 14:34:59 2008 -0700
+@@ -589,6 +589,7 @@ extern const bfd_target bfd_elf32_fr30_v
+ extern const bfd_target bfd_elf32_fr30_vec;
+ extern const bfd_target bfd_elf32_frv_vec;
+ extern const bfd_target bfd_elf32_frvfdpic_vec;
++extern const bfd_target bfd_elf32_ggx_vec;
+ extern const bfd_target bfd_elf32_h8300_vec;
+ extern const bfd_target bfd_elf32_hppa_linux_vec;
+ extern const bfd_target bfd_elf32_hppa_nbsd_vec;
+@@ -920,6 +921,7 @@ static const bfd_target * const _bfd_tar
+ 	&bfd_elf32_fr30_vec,
+ 	&bfd_elf32_frv_vec,
+ 	&bfd_elf32_frvfdpic_vec,
++ 	&bfd_elf32_ggx_vec,
+ 	&bfd_elf32_h8300_vec,
+ 	&bfd_elf32_hppa_linux_vec,
+ 	&bfd_elf32_hppa_nbsd_vec,
+diff -r 8656263dd6bb configure
+--- a/configure	Tue Mar 11 14:34:32 2008 -0700
++++ b/configure	Tue Mar 11 14:34:59 2008 -0700
+@@ -2327,7 +2327,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs bfd binutils opcodes gas ld gprof"
++    noconfigdirs="$noconfigdirs binutils opcodes gas ld gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r 8656263dd6bb configure.ac
+--- a/configure.ac	Tue Mar 11 14:34:32 2008 -0700
++++ b/configure.ac	Tue Mar 11 14:34:59 2008 -0700
+@@ -605,7 +605,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs bfd binutils opcodes gas ld gprof"
++    noconfigdirs="$noconfigdirs binutils opcodes gas ld gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r 8656263dd6bb include/elf/ChangeLog.ggx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/include/elf/ChangeLog.ggx	Tue Mar 11 14:34:59 2008 -0700
+@@ -0,0 +1,6 @@
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* common.h (EM_GGX): Define.
++	* ggx.h: New file.
++
++ 
+diff -r 8656263dd6bb include/elf/common.h
+--- a/include/elf/common.h	Tue Mar 11 14:34:32 2008 -0700
++++ b/include/elf/common.h	Tue Mar 11 14:34:59 2008 -0700
+@@ -1,6 +1,6 @@
+ /* ELF support for BFD.
+    Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+-   2001, 2002, 2003, 2004, 2005, 2006, 2007
++   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+    Free Software Foundation, Inc.
+ 
+    Written by Fred Fish @ Cygnus Support, from information published
+@@ -283,6 +283,8 @@
+ 
+ #define EM_CYGNUS_MEP		0xF00D  /* Toshiba MeP */
+ 
++#define EM_GGX                  0xFEED
++
+ /* See the above comment before you add a new EM_* value here.  */
+ 
+ /* Values for e_version.  */
+diff -r 8656263dd6bb include/elf/ggx.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/include/elf/ggx.h	Tue Mar 11 14:34:59 2008 -0700
+@@ -0,0 +1,30 @@
++/* gcore ELF support for BFD.
++   Copyright 2008 Free Software Foundation, Inc.
++
++   This file is part of BFD, the Binary File Descriptor library.
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software Foundation,
++   Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
++
++#ifndef _ELF_GGX_H
++#define _ELF_GGX_H
++
++#include "elf/reloc-macros.h"
++
++/* Relocation types.  */
++START_RELOC_NUMBERS (elf_ggx_reloc_type)
++  RELOC_NUMBER (R_GGX_NONE, 0)
++END_RELOC_NUMBERS (R_GGX_max)
++
++#endif

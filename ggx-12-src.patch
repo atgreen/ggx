@@ -1,0 +1,444 @@
+diff -r 4335061931e7 bfd/elf32-ggx.c
+--- a/bfd/elf32-ggx.c	Sat Mar 15 05:09:56 2008 -0700
++++ b/bfd/elf32-ggx.c	Mon Mar 17 03:32:00 2008 -0700
+@@ -64,9 +64,8 @@ ggx_elf_reloc (bfd *abfd,
+ 
+   switch (r_type)
+     {
+-    case R_GGX_DIR32:
+-      insn = bfd_get_32 (abfd, hit_data);
+-      insn += sym_value + reloc_entry->addend;
++    case R_GGX_DATA_DIR32:
++      insn = sym_value + reloc_entry->addend;
+       bfd_put_32 (abfd, (bfd_vma) insn, hit_data);
+       break;
+ 
+@@ -97,14 +96,14 @@ static reloc_howto_type ggx_elf_howto_ta
+ 
+   /* 32 bit absolute relocation.  Setting partial_inplace to TRUE and
+      src_mask to a non-zero value is similar to the COFF toolchain.  */
+-  HOWTO (R_GGX_DIR32,	        /* type */
++  HOWTO (R_GGX_DATA_DIR32,	/* type */
+ 	 0,			/* rightshift */
+ 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+ 	 32,			/* bitsize */
+ 	 FALSE,			/* pc_relative */
+ 	 0,			/* bitpos */
+ 	 complain_overflow_bitfield, /* complain_on_overflow */
+-	 ggx_elf_reloc,		/* special_function */
++	 ggx_elf_reloc,	        /* special_function */
+ 	 "R_GGX_DIR32",		/* name */
+ 	 TRUE,			/* partial_inplace */
+ 	 0xffffffff,		/* src_mask */
+@@ -125,7 +124,7 @@ static const struct elf_reloc_map ggx_re
+ static const struct elf_reloc_map ggx_reloc_map[] =
+ {
+     { BFD_RELOC_NONE, 		R_GGX_NONE          },
+-    { BFD_RELOC_32, 		R_GGX_DIR32         }
++    { BFD_RELOC_32, 		R_GGX_DATA_DIR32    }
+ };
+ 
+ /* Given a BFD reloc code, return the howto structure for the
+diff -r 4335061931e7 gas/ChangeLog.ggx
+--- a/gas/ChangeLog.ggx	Sat Mar 15 05:09:56 2008 -0700
++++ b/gas/ChangeLog.ggx	Mon Mar 17 03:32:00 2008 -0700
+@@ -1,3 +1,12 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-03-16  Anthony Green  <green@spindazzle.org>
++
++	* config/tc-ggx.c (md_assemble): Process GGX_F1_4 instructions.
++
++2008-02-22  Anthony Green  <green@spindazzle.org>
++
++	* config/tc-ggx.c (parse_register_operand): Parse new register
++	names: $fp, $sp, $r[0-5].
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/tc-ggx.c (parse_register_operand): New function.
+diff -r 4335061931e7 gas/config/tc-ggx.c
+--- a/gas/config/tc-ggx.c	Sat Mar 15 05:09:56 2008 -0700
++++ b/gas/config/tc-ggx.c	Mon Mar 17 03:32:00 2008 -0700
+@@ -89,14 +89,33 @@ parse_register_operand (char **ptr)
+   int reg;
+   char *s = *ptr;
+ 
+-  if ((*s != '$') || (*(s+1) != 'r'))
++  if (*s != '$')
+     {
+       as_bad ("expecting register");
+       ignore_rest_of_line ();
+       return -1;
+     }
+-  reg = s[2] - '0';
+-  if ((reg < 1) || (reg > 7))
++  if (s[1] == 'f' && s[2] == 'p')
++    {
++      *ptr += 3;
++      return 0;
++    }
++  if (s[1] == 's' && s[2] == 'p')
++    {
++      *ptr += 3;
++      return 1;
++    }
++  if (s[1] == 'r')
++    {
++      reg = s[2] - '0';
++      if ((reg < 0) || (reg > 5))
++	{
++	  as_bad ("illegal register number");
++	  ignore_rest_of_line ();
++	  return -1;
++	}
++    }
++  else
+     {
+       as_bad ("illegal register number");
+       ignore_rest_of_line ();
+@@ -105,7 +124,7 @@ parse_register_operand (char **ptr)
+   
+   *ptr += 3;
+ 
+-  return reg;
++  return reg + 2;
+ }
+ 
+ /* This is the guts of the machine-dependent assembler.  STR points to
+@@ -220,6 +239,24 @@ md_assemble (char *str)
+ 		     BFD_RELOC_32);
+       }
+       break;
++    case GGX_F1_4:
++      iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      {
++	expressionS arg;
++	char *where;
++	
++	op_end = parse_exp_save_ilp (op_end, &arg);
++	where = frag_more (4);
++	fix_new_exp (frag_now,
++		     (where - frag_now->fr_literal),
++		     4,
++		     &arg,
++		     0,
++		     BFD_RELOC_32);
++      }
++      break;
+     case GGX_F2_NARG:
+       iword = opcode->opcode << 12;
+       while (ISSPACE (*op_end))
+diff -r 4335061931e7 include/elf/ggx.h
+--- a/include/elf/ggx.h	Sat Mar 15 05:09:56 2008 -0700
++++ b/include/elf/ggx.h	Mon Mar 17 03:32:00 2008 -0700
+@@ -25,7 +25,7 @@
+ /* Relocation types.  */
+ START_RELOC_NUMBERS (elf_ggx_reloc_type)
+   RELOC_NUMBER (R_GGX_NONE, 0)
+-  RELOC_NUMBER (R_GGX_DIR32, 1)
++  RELOC_NUMBER (R_GGX_DATA_DIR32, 1)
+ END_RELOC_NUMBERS (R_GGX_max)
+ 
+ #endif
+diff -r 4335061931e7 include/opcode/ChangeLog.ggx
+--- a/include/opcode/ChangeLog.ggx	Sat Mar 15 05:09:56 2008 -0700
++++ b/include/opcode/ChangeLog.ggx	Mon Mar 17 03:32:00 2008 -0700
+@@ -1,3 +1,7 @@ 2008-03-11  Anthony Green  <green@spinda
++2008-03-16  Anthony Green  <green@spindazzle.org>
++
++	* ggx.h (GGX_F1_4): Define.
++
+ 2008-03-11  Anthony Green  <green@spindazzle.org>
+ 
+  	* ggx.h (GGX_F1_A4): Define.
+diff -r 4335061931e7 include/opcode/ggx.h
+--- a/include/opcode/ggx.h	Sat Mar 15 05:09:56 2008 -0700
++++ b/include/opcode/ggx.h	Mon Mar 17 03:32:00 2008 -0700
+@@ -25,6 +25,7 @@ 02110-1301, USA.  */
+     Some use A and B registers                      (GGX_F1_AB)
+     Some use A, B and C registers                   (GGX_F1_ABC)
+     Some use A and consume a 4 byte immediate value (GGX_F1_A4)
++    Some use just a 4 byte immediate value          (GGX_F1_4)
+ 
+   Form 2 instructions also come in different flavors:
+ 
+@@ -37,6 +38,7 @@ 02110-1301, USA.  */
+ #define GGX_F1_AB   0x102
+ #define GGX_F1_ABC  0x103
+ #define GGX_F1_A4   0x104
++#define GGX_F1_4    0x105
+ 
+ #define GGX_F2_NARG 0x200
+ #define GGX_F2_12V  0x201
+diff -r 4335061931e7 opcodes/ChangeLog.ggx
+--- a/opcodes/ChangeLog.ggx	Sat Mar 15 05:09:56 2008 -0700
++++ b/opcodes/ChangeLog.ggx	Mon Mar 17 03:32:00 2008 -0700
+@@ -1,3 +1,12 @@ 2008-03-11  Anthony Green  <green@spinda
++2008-03-16  Anthony Green  <green@spindazzle.org>
++
++	* ggx-opc.c (ggx_form1_opc_info): Add jsra and ret.
++
++2008-03-11  Anthony Green  <green@spindazzle.org>
++
++	* ggx-dis.c (reg_names): Define.
++	(print_insn_ggx): Use reg_names to print register names.
++
+ 2008-03-11  Anthony Green  <green@spindazzle.org>
+  
+ 	* ggx-dis.c (print_insn_ggx): Add GGX_F1_AB support.
+diff -r 4335061931e7 opcodes/ggx-dis.c
+--- a/opcodes/ggx-dis.c	Sat Mar 15 05:09:56 2008 -0700
++++ b/opcodes/ggx-dis.c	Mon Mar 17 03:32:00 2008 -0700
+@@ -35,6 +35,9 @@ static void *stream;
+ #define OP_B(i) ((i >> 3) & 0x7)
+ #define OP_C(i) (i & 0x7)
+ 
++static const char *reg_names[8] = 
++  { "$fp", "$sp", "$r0", "$r1", "$r2", "$r3", "$r4", "$r5" };
++
+ int
+ print_insn_ggx (bfd_vma addr, struct disassemble_info *info)
+ {
+@@ -61,8 +64,9 @@ print_insn_ggx (bfd_vma addr, struct dis
+ 	  fpr (stream, "%s", opcode->name);
+ 	  break;
+ 	case GGX_F1_AB:
+-	  fpr (stream, "%s\t$r%d, $r%d", opcode->name,
+-	       OP_A(iword), OP_B(iword));
++	  fpr (stream, "%s\t%s, %s", opcode->name,
++	       reg_names[OP_A(iword)], 
++	       reg_names[OP_B(iword)]);
+ 	  break;
+ 	case GGX_F1_A4:
+ 	  {
+@@ -70,7 +74,18 @@ print_insn_ggx (bfd_vma addr, struct dis
+ 	    if ((status = info->read_memory_func (addr+2, buffer, 4, info)))
+ 	      goto fail;
+ 	    imm = bfd_getb32 (buffer);
+-	    fpr (stream, "%s\t$r%d, 0x%x", opcode->name, OP_A(iword), imm);
++	    fpr (stream, "%s\t%s, 0x%x", opcode->name, 
++		 reg_names[OP_A(iword)], imm);
++	    length = 6;
++	  }
++	  break;
++	case GGX_F1_4:
++	  {
++	    unsigned imm;
++	    if ((status = info->read_memory_func (addr+2, buffer, 4, info)))
++	      goto fail;
++	    imm = bfd_getb32 (buffer);
++	    fpr (stream, "%s\t0x%x", opcode->name, imm);
+ 	    length = 6;
+ 	  }
+ 	  break;
+diff -r 4335061931e7 opcodes/ggx-opc.c
+--- a/opcodes/ggx-opc.c	Sat Mar 15 05:09:56 2008 -0700
++++ b/opcodes/ggx-opc.c	Mon Mar 17 03:32:00 2008 -0700
+@@ -49,8 +49,8 @@ const ggx_opc_info_t ggx_form1_opc_info[
+   {
+     { 0x00, GGX_F1_A4,   "ldi.l" },
+     { 0x01, GGX_F1_AB,   "mov" },
+-    { 0x02, GGX_F1_NARG, "bad" },
+-    { 0x03, GGX_F1_NARG, "bad" },
++    { 0x02, GGX_F1_4,    "jsra" },
++    { 0x03, GGX_F1_NARG, "ret" },
+     { 0x04, GGX_F1_NARG, "bad" },
+     { 0x05, GGX_F1_NARG, "bad" },
+     { 0x06, GGX_F1_NARG, "bad" },
+diff -r 4335061931e7 sim/ggx/ChangeLog
+--- a/sim/ggx/ChangeLog	Sat Mar 15 05:09:56 2008 -0700
++++ b/sim/ggx/ChangeLog	Mon Mar 17 03:32:00 2008 -0700
+@@ -1,3 +1,14 @@ 2008-02-21  Anthony Green  <green@spinda
++2008-03-16  Anthony Green  <green@spindazzle.org>
++
++	* interp.c (EXTRACT_WORD): Define.
++	(rlat): Use EXTRACT_WORD.
++	(sim_resume): Add jsra and ret.
++
++2008-02-22  Anthony Green  <green@spindazzle.org>
++
++	* interp.c (reg_names): Define.
++	(sim_resume): Use reg_names.
++
+ 2008-02-21  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config.in, configure, configure.ac, interp.c, Makefile.in,
+diff -r 4335061931e7 sim/ggx/interp.c
+--- a/sim/ggx/interp.c	Sat Mar 15 05:09:56 2008 -0700
++++ b/sim/ggx/interp.c	Mon Mar 17 03:32:00 2008 -0700
+@@ -28,9 +28,15 @@ along with this program.  If not, see <h
+ #include "gdb/remote-sim.h"
+ 
+ typedef int word;
++typedef unsigned int uword;
+ 
+ static unsigned long  heap_ptr = 0;
+ host_callback *       callback;
++
++#define EXTRACT_WORD(addr) (((addr)[0] << 24) \
++			    + ((addr)[1] << 16) \
++			    + ((addr)[2] << 8) \
++			    + ((addr)[3]))
+ 
+ unsigned long
+ ggx_extract_unsigned_integer (addr, len)
+@@ -72,6 +78,10 @@ ggx_store_unsigned_integer (addr, len, v
+       val >>= 8;
+     }
+ }
++
++/* ggx register names.  */
++static const char *reg_names[8] = 
++  { "$fp", "$sp", "$r0", "$r1", "$r2", "$r3", "$r4", "$r5" };
+ 
+ /* The machine state.
+ 
+@@ -176,6 +186,69 @@ interrupt ()
+   cpu.asregs.exception = SIGINT;
+ }
+ 
++/* Write a 4 byte value to memory.  */
++
++static void INLINE 
++wlat (x, v)
++     word x, v;
++{
++  if (((uword)x) >= cpu.asregs.msize)
++    {
++      if (issue_messages)
++	fprintf (stderr, "word write to 0x%x outside memory range\n", x);
++      
++      cpu.asregs.exception = SIGSEGV;
++    }
++  else
++    {
++      if ((x & 3) != 0)
++	{
++	  if (issue_messages)
++	    fprintf (stderr, "word write to unaligned memory address: 0x%x\n", x);
++      
++	  cpu.asregs.exception = SIGBUS;
++	}
++      {
++	unsigned char * p = cpu.asregs.memory + x;
++	p[0] = v >> 24;
++	p[1] = v >> 16;
++	p[2] = v >> 8;
++	p[3] = v;
++      }
++    }
++}
++
++/* Read 4 bytes from memory.  */
++
++static int INLINE 
++rlat (x)
++     word x;
++{
++  if (((uword) x) >= cpu.asregs.msize)
++    {
++      if (issue_messages)
++	fprintf (stderr, "word read from 0x%x outside memory range\n", x);
++      
++      cpu.asregs.exception = SIGSEGV;
++      return 0;
++    }
++  else
++    {
++      if ((x & 3) != 0)
++	{
++	  if (issue_messages)
++	    fprintf (stderr, "word read from unaligned address: 0x%x\n", x);
++      
++	  cpu.asregs.exception = SIGBUS;
++	  return 0;
++	}
++      {
++	unsigned char * p = cpu.asregs.memory + x;
++	return (EXTRACT_WORD(p));
++      }
++    }
++}
++
+ static int tracing = 0;
+ 
+ void
+@@ -225,17 +298,14 @@ sim_resume (sd, step, siggnal)
+ 	      {
+ 		int reg = (inst >> 6) & 0x7;
+ 
+-		unsigned int val = ((memory[pc + 2] << 24)
+-				    + (memory[pc + 3] << 16)
+-				    + (memory[pc + 4] << 8)
+-				    + (memory[pc + 5]));
++		unsigned int val = EXTRACT_WORD(&(memory[pc + 2]));
+ 		cpu.asregs.regs[reg] = val;
+ 		pc += 4;
+ 
+ 		if (tracing)
+ 		  callback->printf_filtered (callback, 
+-					     "# 0x%08x: $r%d = 0x%x\n",
+-					     opc, reg, val);
++					     "# 0x%08x: %s = 0x%x\n",
++					     opc, reg_names[reg], val);
+ 	      }
+ 	      break;
+ 	    case 0x01: /* mov (register-to-register) */
+@@ -246,10 +316,54 @@ sim_resume (sd, step, siggnal)
+ 
+ 		if (tracing)
+ 		  callback->printf_filtered (callback, 
+-					     "# 0x%08x: $r%d = $r%d (0x%x)\n",
+-					     opc, dest, src, cpu.asregs.regs[src]);
++					     "# 0x%08x: %s = %s (0x%x)\n",
++					     opc, reg_names[dest], reg_names[src], 
++					     cpu.asregs.regs[src]);
+ 	      }
+ 	      break;
++ 	    case 0x02: /* jsra */
++ 	      {
++ 		unsigned int fn = EXTRACT_WORD(&(memory[pc + 2]));
++ 		unsigned int sp = cpu.asregs.regs[1];
++ 
++ 		/* Push the return address.  */
++ 		wlat (sp, pc + 6);
++ 		sp -= 4;
++ 		
++ 		/* Push the current frame pointer.  */
++ 		wlat (sp, cpu.asregs.regs[0]);
++ 		sp -= 4;
++ 
++ 		/* Uncache the stack pointer and set the pc.  */
++ 		cpu.asregs.regs[1] = sp;
++ 		pc = fn - 2;
++ 		if (tracing)
++ 		  callback->printf_filtered (callback, 
++ 					     "# 0x%08x: jumping to subroutine 0x%x\n",
++ 					     opc, pc + 2);
++ 	      }
++ 	      break;
++ 	    case 0x03: /* ret */
++ 	      {
++ 		unsigned int sp = cpu.asregs.regs[1];
++ 
++ 		/* Pop the frame pointer.  */
++ 		sp += 4;
++ 		cpu.asregs.regs[0] = rlat (sp);
++ 		
++ 		/* Pop the return address.  */
++ 		sp += 4;
++ 		pc = rlat (sp) - 2;
++ 
++ 		/* Uncache the stack pointer.  */
++ 		cpu.asregs.regs[1] = sp;
++ 
++ 		if (tracing)
++ 		  callback->printf_filtered (callback, 
++ 					     "# 0x%08x: returning to 0x%x\n",
++ 					     opc, pc + 2);
++  	      }
++  	      break;
+ 	    default:
+ 	      cpu.asregs.exception = SIGILL;
+ 	      break;

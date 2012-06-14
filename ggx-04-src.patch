@@ -1,0 +1,354 @@
+diff -r e3cdeb99b119 ChangeLog.ggx
+--- a/ChangeLog.ggx	Mon Mar 10 07:59:37 2008 -0700
++++ b/ChangeLog.ggx	Mon Mar 10 08:00:46 2008 -0700
+@@ -1,3 +1,8 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* configure.ac: Build gas.
++	* configure: Rebuilt.
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* configure.ac: Build opcodes.
+diff -r e3cdeb99b119 configure
+--- a/configure	Mon Mar 10 07:59:37 2008 -0700
++++ b/configure	Mon Mar 10 08:00:46 2008 -0700
+@@ -2327,7 +2327,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs binutils gas ld gprof"
++    noconfigdirs="$noconfigdirs binutils ld gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r e3cdeb99b119 configure.ac
+--- a/configure.ac	Mon Mar 10 07:59:37 2008 -0700
++++ b/configure.ac	Mon Mar 10 08:00:46 2008 -0700
+@@ -605,7 +605,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs binutils gas ld gprof"
++    noconfigdirs="$noconfigdirs binutils ld gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r e3cdeb99b119 gas/ChangeLog.ggx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/gas/ChangeLog.ggx	Mon Mar 10 08:00:46 2008 -0700
+@@ -0,0 +1,6 @@
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* config/tc-ggx.h: New file.
++	* config/tc-ggx.c: New file.
++	* configure: Add support for ggx.
++	* configure.tgt: Add support for ggx.
+diff -r e3cdeb99b119 gas/config/tc-ggx.c
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/gas/config/tc-ggx.c	Mon Mar 10 08:00:46 2008 -0700
+@@ -0,0 +1,233 @@
++/* tc-ggx.c -- Assemble code for ggx
++   Copyright 2008
++   Free Software Foundation, Inc.
++
++   This file is part of GAS, the GNU Assembler.
++
++   GAS is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   GAS is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with GAS; see the file COPYING.  If not, write to
++   the Free Software Foundation, 51 Franklin Street - Fifth Floor,
++   Boston, MA 02110-1301, USA.  */
++
++/* Contributed by Anthony Green <green@spindazzle.org>.  */
++
++#include "as.h"
++#include "safe-ctype.h"
++#include "opcode/ggx.h"
++
++extern const ggx_opc_info_t ggx_opc_info[128];
++
++const char comment_chars[]        = "#";
++const char line_separator_chars[] = ";";
++const char line_comment_chars[]   = "#";
++
++static int pending_reloc;
++static struct hash_control *opcode_hash_control;
++
++const pseudo_typeS md_pseudo_table[] =
++{
++  {0, 0, 0}
++};
++
++const char FLT_CHARS[] = "rRsSfFdDxXpP";
++const char EXP_CHARS[] = "eE";
++
++void
++md_operand (expressionS *op __attribute__((unused)))
++{
++  /* Empty for now. */
++}
++
++/* This function is called once, at assembler startup time.  It sets
++   up the hash table with all the opcodes in it, and also initializes
++   some aliases for compatibility with other assemblers.  */
++
++void
++md_begin (void)
++{
++  const ggx_opc_info_t *opcode;
++  opcode_hash_control = hash_new ();
++
++  /* Insert names into hash table.  */
++  for (opcode = ggx_opc_info; opcode->name; opcode++)
++    hash_insert (opcode_hash_control, opcode->name, (char *) opcode);
++
++  bfd_set_arch_mach (stdoutput, TARGET_ARCH, 0);
++}
++
++/* This is the guts of the machine-dependent assembler.  STR points to
++   a machine dependent instruction.  This function is supposed to emit
++   the frags/bytes it assembles to.  */
++
++void
++md_assemble (char *str)
++{
++  char *op_start;
++  char *op_end;
++
++  ggx_opc_info_t *opcode;
++  char *output;
++  int idx = 0;
++  char pend;
++
++  int nlen = 0;
++
++  /* Drop leading whitespace.  */
++  while (*str == ' ')
++    str++;
++
++  /* Find the op code end.  */
++  op_start = str;
++  for (op_end = str;
++       *op_end && !is_end_of_line[*op_end & 0xff] && *op_end != ' ';
++       op_end++)
++    nlen++;
++
++  pend = *op_end;
++  *op_end = 0;
++
++  if (nlen == 0)
++    as_bad (_("can't find opcode "));
++
++  opcode = (ggx_opc_info_t *) hash_find (opcode_hash_control, op_start);
++  *op_end = pend;
++
++  if (opcode == NULL)
++    {
++      as_bad (_("unknown opcode %s"), op_start);
++      return;
++    }
++
++  output = frag_more (1);
++  output[idx++] = opcode->opcode;
++  
++  while (ISSPACE (*op_end))
++    op_end++;
++    
++  if (*op_end != 0)
++    as_warn ("extra stuff on line ignored");
++   
++  if (pending_reloc)
++    as_bad ("Something forgot to clean up\n");
++}
++
++/* Turn a string in input_line_pointer into a floating point constant
++   of type type, and store the appropriate bytes in *LITP.  The number
++   of LITTLENUMS emitted is stored in *SIZEP .  An error message is
++   returned, or NULL on OK.  */
++
++char *
++md_atof (int type, char *litP, int *sizeP)
++{
++  int prec;
++  LITTLENUM_TYPE words[4];
++  char *t;
++  int i;
++
++  switch (type)
++    {
++    case 'f':
++      prec = 2;
++      break;
++
++    case 'd':
++      prec = 4;
++      break;
++
++    default:
++      *sizeP = 0;
++      return _("bad call to md_atof");
++    }
++
++  t = atof_ieee (input_line_pointer, type, words);
++  if (t)
++    input_line_pointer = t;
++
++  *sizeP = prec * 2;
++
++  for (i = prec - 1; i >= 0; i--)
++    {
++      md_number_to_chars (litP, (valueT) words[i], 2);
++      litP += 2;
++    }
++
++  return NULL;
++}
++
++const char *md_shortopts = "";
++
++struct option md_longopts[] =
++{
++  {NULL, no_argument, NULL, 0}
++};
++size_t md_longopts_size = sizeof (md_longopts);
++
++/* We have no target specific options yet, so these next
++   two functions are empty.  */
++int
++md_parse_option (int c ATTRIBUTE_UNUSED, char *arg ATTRIBUTE_UNUSED)
++{
++  return 0;
++}
++
++void
++md_show_usage (FILE *stream ATTRIBUTE_UNUSED)
++{
++}
++
++/* Apply a fixup to the object file.  */
++
++void
++md_apply_fix (fixS *fixP ATTRIBUTE_UNUSED, valueT * valP ATTRIBUTE_UNUSED, segT seg ATTRIBUTE_UNUSED)
++{
++  /* Empty for now.  */
++}
++
++/* Put number into target byte order (big endian).  */
++
++void
++md_number_to_chars (char *ptr, valueT use, int nbytes)
++{
++  number_to_chars_bigendian (ptr, use, nbytes);
++}
++
++/* Translate internal representation of relocation info to BFD target
++   format.  */
++
++arelent *
++tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixp)
++{
++  arelent *rel;
++  bfd_reloc_code_real_type r_type;
++
++  rel = xmalloc (sizeof (arelent));
++  rel->sym_ptr_ptr = xmalloc (sizeof (asymbol *));
++  *rel->sym_ptr_ptr = symbol_get_bfdsym (fixp->fx_addsy);
++  rel->address = fixp->fx_frag->fr_address + fixp->fx_where;
++
++  r_type = fixp->fx_r_type;
++  rel->addend = fixp->fx_addnumber;
++  rel->howto = bfd_reloc_type_lookup (stdoutput, r_type);
++
++  if (rel->howto == NULL)
++    {
++      as_bad_where (fixp->fx_file, fixp->fx_line,
++		    _("Cannot represent relocation type %s"),
++		    bfd_get_reloc_code_name (r_type));
++      /* Set howto to a garbage value so that we can keep going.  */
++      rel->howto = bfd_reloc_type_lookup (stdoutput, BFD_RELOC_32);
++      assert (rel->howto != NULL);
++    }
++
++  return rel;
++}
+diff -r e3cdeb99b119 gas/config/tc-ggx.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/gas/config/tc-ggx.h	Mon Mar 10 08:00:46 2008 -0700
+@@ -0,0 +1,44 @@
++/* tc-ggx.h -- Header file for tc-ggx.c.
++
++   Copyright 2008 Free Software Foundation, Inc.
++
++   This file is part of GAS, the GNU Assembler.
++
++   GAS is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   GAS is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License along
++   with GAS; see the file COPYING.  If not, write to the Free Software
++   Foundation, 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
++
++#define TC_GGX 1
++#define TARGET_BYTES_BIG_ENDIAN 1
++#define WORKING_DOT_WORD
++
++/* This macro is the BFD target name to use when creating the output
++   file.  This will normally depend upon the `OBJ_FMT' macro.  */
++#define TARGET_FORMAT "elf32-ggx"
++
++/* This macro is the BFD architecture to pass to `bfd_set_arch_mach'.  */
++#define TARGET_ARCH bfd_arch_ggx
++
++#define md_undefined_symbol(NAME)           0
++
++/* These macros must be defined, but is will be a fatal assembler
++   error if we ever hit them.  */
++#define md_estimate_size_before_relax(A, B) (as_fatal (_("estimate size\n")),0)
++#define md_convert_frag(B, S, F)            (as_fatal (_("convert_frag\n")), 0)
++
++/* PC relative operands are relative to the start of the opcode, and
++   the operand is always one byte into the opcode.  */
++#define md_pcrel_from(FIX) 						\
++	((FIX)->fx_where + (FIX)->fx_frag->fr_address - 1)
++
++#define md_section_align(SEGMENT, SIZE)     (SIZE)
+diff -r e3cdeb99b119 gas/configure
+--- a/gas/configure	Mon Mar 10 07:59:37 2008 -0700
++++ b/gas/configure	Mon Mar 10 08:00:46 2008 -0700
+@@ -11085,7 +11085,6 @@ _ACEOF
+ _ACEOF
+ 
+ fi
+-
+ 
+ if test ! -r ${srcdir}/config/tc-${target_cpu_type}.c; then
+   { { echo "$as_me:$LINENO: error: GAS does not support target CPU ${target_cpu_type}" >&5
+diff -r e3cdeb99b119 gas/configure.tgt
+--- a/gas/configure.tgt	Mon Mar 10 07:59:37 2008 -0700
++++ b/gas/configure.tgt	Mon Mar 10 08:00:46 2008 -0700
+@@ -143,6 +143,8 @@ case ${generic_target} in
+   frv-*-*linux*)			fmt=elf em=linux;;
+   frv-*-*)				fmt=elf ;;
+ 
++  ggx-*-*)                             fmt=elf ;;
++
+   hppa-*-linux*)
+     case ${cpu} in
+       hppa*64*)				fmt=elf em=hppalinux64 ;;

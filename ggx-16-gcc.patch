@@ -1,0 +1,199 @@
+diff -r 8f81079c9d1b gcc/ChangeLog.ggx
+--- a/gcc/ChangeLog.ggx	Wed Mar 19 11:14:46 2008 -0700
++++ b/gcc/ChangeLog.ggx	Thu Mar 20 17:39:37 2008 -0700
+@@ -1,6 +1,9 @@ 2008-03-19  Anthony Green  <green@spinda
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/ggx/ggx.md (loadsi_offset, storesi_offset): New patterns.
++	(cmpsi, bne, beq, blt, bltu, bgt, bgtu, bge, ble, bgeu, bleu): New
++	patterns.
++	(jsr, jmpa): Implement patterns.
+ 
+ 2008-03-18  Anthony Green  <green@spindazzle.org>
+ 
+diff -r 8f81079c9d1b gcc/config/ggx/ggx.md
+--- a/gcc/config/ggx/ggx.md	Wed Mar 19 11:14:46 2008 -0700
++++ b/gcc/config/ggx/ggx.md	Thu Mar 20 17:39:37 2008 -0700
+@@ -122,6 +122,113 @@
+   "mov   %0, %1")
+ 
+ ;; -------------------------------------------------------------------------
++;; Compare instructions
++;; -------------------------------------------------------------------------
++
++(define_insn "cmpsi"
++  [(set (cc0)
++	(compare
++	 (match_operand:SI 0 "register_operand" "r")
++	 (match_operand:SI 1 "register_operand"	"r")))]
++  ""
++  "@
++   cmp    %1, %0")
++
++;; -------------------------------------------------------------------------
++;; Branch instructions
++;; -------------------------------------------------------------------------
++
++(define_insn "bne"
++  [(set (pc)
++	(if_then_else (ne (cc0)
++			  (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "bne    %l0")
++
++(define_insn "beq"
++  [(set (pc)
++	(if_then_else (eq (cc0)
++			  (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "beq    %l0")
++
++(define_insn "blt"
++  [(set (pc)
++	(if_then_else (lt (cc0)
++			  (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "blt    %l0")
++
++(define_insn "bltu"
++  [(set (pc)
++	(if_then_else (ltu (cc0)
++			   (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "bltu   %l0")
++
++(define_insn "bgt"
++  [(set (pc)
++	(if_then_else (gt (cc0)
++			  (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "bgt    %l0")
++
++(define_insn "bgtu"
++  [(set (pc)
++	(if_then_else (gtu (cc0)
++			   (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "bgtu   %l0")
++
++(define_insn "bge"
++  [(set (pc)
++	(if_then_else (ge (cc0)
++			  (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "bge    %l0")
++
++(define_insn "ble"
++  [(set (pc)
++	(if_then_else (le (cc0)
++			  (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "ble    %l0")
++
++(define_insn "bgeu"
++  [(set (pc)
++	(if_then_else (geu (cc0)
++			   (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "bgeu   %l0")
++
++(define_insn "bleu"
++  [(set (pc)
++	(if_then_else (leu (cc0)
++			   (const_int 0))
++		      (label_ref (match_operand 0 "" ""))
++		      (pc)))]
++  ""
++  "bleu   %l0")
++
++;; -------------------------------------------------------------------------
+ ;; Call and Jump instructions
+ ;; -------------------------------------------------------------------------
+ 
+@@ -132,6 +239,13 @@
+ {
+   gcc_assert (GET_CODE (operands[0]) == MEM);
+ })
++
++(define_insn "*call"
++  [(call (mem:QI (match_operand:SI
++		  0 "immediate_operand" "i"))
++	 (match_operand 1 "" ""))]
++  ""
++  "jsra   %0")
+ 
+ (define_insn "*call_indirect"
+   [(call (mem:QI (match_operand:SI
+@@ -140,13 +254,6 @@
+   ""
+   "jsr    %0")
+ 
+-(define_insn "*call"
+-  [(call (mem:QI (match_operand:SI
+-		  0 "immediate_operand" "i"))
+-	 (match_operand 1 "" ""))]
+-  ""
+-  "jsra   %0")
+-
+ (define_expand "call_value"
+   [(set (match_operand 0 "" "")
+ 		(call (match_operand:QI 1 "memory_operand" "")
+@@ -155,6 +262,14 @@
+ {
+   gcc_assert (GET_CODE (operands[1]) == MEM);
+ })
++
++(define_insn "*call_value"
++  [(set (match_operand 0 "register_operand" "=r")
++	(call (mem:QI (match_operand:SI
++		       1 "immediate_operand" "i"))
++	      (match_operand 2 "" "")))]
++  ""
++  "jsra   %1")
+ 
+ (define_insn "*call_value_indirect"
+   [(set (match_operand 0 "register_operand" "=r")
+@@ -164,14 +279,6 @@
+   ""
+   "jsr    %1")
+ 
+-(define_insn "*call_value"
+-  [(set (match_operand 0 "register_operand" "=r")
+-	(call (mem:QI (match_operand:SI
+-		       1 "immediate_operand" "i"))
+-	      (match_operand 2 "" "")))]
+-  ""
+-  "jsra   %1")
+-
+ (define_insn "indirect_jump"
+   [(set (pc) (match_operand:SI 0 "nonimmediate_operand" "r"))]
+   ""
+@@ -182,8 +289,8 @@
+   [(set (pc)
+ 	(label_ref (match_operand 0 "" "")))]
+   ""
+-  "*
+-  abort ();")
++  "jmpa   %l0")
++
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Prologue & Epilogue

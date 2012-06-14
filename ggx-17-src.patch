@@ -1,0 +1,357 @@
+diff -r ebda42335fb3 opcodes/ChangeLog.ggx
+--- a/opcodes/ChangeLog.ggx	Thu Mar 20 17:36:47 2008 -0700
++++ b/opcodes/ChangeLog.ggx	Thu Mar 20 18:16:35 2008 -0700
+@@ -3,6 +3,8 @@ 2008-03-20  Anthony Green  <green@spinda
+ 	* ggx-dis.c (print_insn_ggx): Add GGX_F1_A support.
+ 	* ggx-opc.c (ggx_form1_opc_info): Add jmpa, jsr, cmp, beq, bne,
+ 	blt, bgt, bltu, bgtu, bge, ble, bgeu, and bleu.
++	(ggx_form1_opc_info): Add ld.b, lda.b, ldi.b, ld.s, lda.s, ldi.s,
++	st.b, sta.b, st.s, sta.s, jmp.
+ 
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
+ 
+diff -r ebda42335fb3 opcodes/ggx-opc.c
+--- a/opcodes/ggx-opc.c	Thu Mar 20 17:36:47 2008 -0700
++++ b/opcodes/ggx-opc.c	Thu Mar 20 18:16:35 2008 -0700
+@@ -73,17 +73,17 @@ const ggx_opc_info_t ggx_form1_opc_info[
+     { 0x17, GGX_F1_4,    "bleu" },
+     { 0x18, GGX_F1_A,    "jsr" },
+     { 0x19, GGX_F1_4,    "jmpa" },
+-    { 0x1a, GGX_F1_NARG, "bad" },
+-    { 0x1b, GGX_F1_NARG, "bad" },
+-    { 0x1c, GGX_F1_NARG, "bad" },
+-    { 0x1d, GGX_F1_NARG, "bad" },
+-    { 0x1e, GGX_F1_NARG, "bad" },
+-    { 0x1f, GGX_F1_NARG, "bad" },
+-    { 0x20, GGX_F1_NARG, "bad" },
+-    { 0x21, GGX_F1_NARG, "bad" },
+-    { 0x22, GGX_F1_NARG, "bad" },
+-    { 0x23, GGX_F1_NARG, "bad" },
+-    { 0x24, GGX_F1_NARG, "bad" },
++    { 0x1a, GGX_F1_A4,   "ldi.b" },
++    { 0x1b, GGX_F1_ABi,  "ld.b" },
++    { 0x1c, GGX_F1_A4,   "lda.b" },
++    { 0x1d, GGX_F1_AiB,  "st.b" },
++    { 0x1e, GGX_F1_4A,   "sta.b" },
++    { 0x1f, GGX_F1_A4,   "ldi.s" },
++    { 0x20, GGX_F1_ABi,  "ld.s" },
++    { 0x21, GGX_F1_A4,   "lda.s" },
++    { 0x22, GGX_F1_AiB,  "st.s" },
++    { 0x23, GGX_F1_4A,   "sta.s" },
++    { 0x24, GGX_F1_A,    "jmp" },
+     { 0x25, GGX_F1_NARG, "bad" },
+     { 0x26, GGX_F1_NARG, "bad" },
+     { 0x27, GGX_F1_NARG, "bad" },
+diff -r ebda42335fb3 sim/ggx/ChangeLog
+--- a/sim/ggx/ChangeLog	Thu Mar 20 17:36:47 2008 -0700
++++ b/sim/ggx/ChangeLog	Thu Mar 20 18:16:35 2008 -0700
+@@ -4,6 +4,9 @@ 2008-03-20  Anthony Green  <green@spinda
+ 	(CC_GT, CC_LT, CC_EQ, CC_GTU, CC_LTU): Define.
+ 	(sim_resume): Add jmpa, jsr, cmp, beq, bne, blt, bgt, bltu, bgtu,
+ 	bge, ble, bgeu, and bleu.
++	(rbat, rsat, wbat, wsat): New functions.
++	(sim_resume): Add ld.b, lda.b, ldi.b, ld.s, lda.s, ldi.s, st.b,
++	sta.b, st.s, sta.s, jmp.
+ 
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
+ 
+diff -r ebda42335fb3 sim/ggx/interp.c
+--- a/sim/ggx/interp.c	Thu Mar 20 17:36:47 2008 -0700
++++ b/sim/ggx/interp.c	Thu Mar 20 18:16:35 2008 -0700
+@@ -191,6 +191,58 @@ interrupt ()
+ interrupt ()
+ {
+   cpu.asregs.exception = SIGINT;
++}
++
++/* Write a 1 byte value to memory.  */
++
++static void INLINE 
++wbat (x, v)
++     word x, v;
++{
++  if (((uword)x) >= cpu.asregs.msize)
++    {
++      if (issue_messages)
++	fprintf (stderr, "byte write to 0x%x outside memory range\n", x);
++      
++      cpu.asregs.exception = SIGSEGV;
++    }
++  else
++    {
++      {
++	unsigned char * p = cpu.asregs.memory + x;
++	*p = v;
++      }
++    }
++}
++
++/* Write a 2 byte value to memory.  */
++
++static void INLINE 
++wsat (x, v)
++     word x, v;
++{
++  if (((uword)x) >= cpu.asregs.msize)
++    {
++      if (issue_messages)
++	fprintf (stderr, "short word write to 0x%x outside memory range\n", x);
++      
++      cpu.asregs.exception = SIGSEGV;
++    }
++  else
++    {
++      if ((x & 1) != 0)
++	{
++	  if (issue_messages)
++	    fprintf (stderr, "short word write to unaligned memory address: 0x%x\n", x);
++      
++	  cpu.asregs.exception = SIGBUS;
++	}
++      {
++	unsigned char * p = cpu.asregs.memory + x;
++	p[0] = v >> 8;
++	p[1] = v;
++      }
++    }
+ }
+ 
+ /* Write a 4 byte value to memory.  */
+@@ -225,6 +277,58 @@ wlat (x, v)
+     }
+ }
+ 
++/* Read 2 bytes from memory.  */
++
++static int INLINE 
++rsat (x)
++     word x;
++{
++  if (((uword) x) >= cpu.asregs.msize)
++    {
++      if (issue_messages)
++	fprintf (stderr, "short word read from 0x%x outside memory range\n", x);
++      
++      cpu.asregs.exception = SIGSEGV;
++      return 0;
++    }
++  else
++    {
++      if ((x & 1) != 0)
++	{
++	  if (issue_messages)
++	    fprintf (stderr, "short word read from unaligned address: 0x%x\n", x);
++      
++	  cpu.asregs.exception = SIGBUS;
++	  return 0;
++	}
++      {
++	unsigned char * p = cpu.asregs.memory + x;
++	return (p[0] << 8) | p[1];
++      }
++    }
++}
++
++/* Read 1 byte from memory.  */
++
++static int INLINE 
++rbat (x)
++     word x;
++{
++  if (((uword) x) >= cpu.asregs.msize)
++    {
++      if (issue_messages)
++	fprintf (stderr, "byte read from 0x%x outside memory range\n", x);
++      
++      cpu.asregs.exception = SIGSEGV;
++      return 0;
++    }
++  else
++    {
++      unsigned char * p = cpu.asregs.memory + x;
++      return *p;
++    }
++}
++
+ /* Read 4 bytes from memory.  */
+ 
+ static int INLINE 
+@@ -301,7 +405,7 @@ sim_resume (sd, step, siggnal)
+ 	  int opcode = inst >> 9;
+ 	  switch (opcode)
+ 	    {
+-	    case 0x00: /* ld.w (immediate) */
++	    case 0x00: /* ldi.l (immediate) */
+ 	      {
+ 		int reg = (inst >> 6) & 0x7;
+ 
+@@ -721,6 +825,169 @@ sim_resume (sd, step, siggnal)
+ 					     "# 0x%08x: jumping to 0x%x\n", opc, tgt); 
+ 	      }
+ 	      break;
++	    case 0x1a: /* ldi.b (immediate) */
++	      {
++		int reg = (inst >> 6) & 0x7;
++
++		unsigned int val = EXTRACT_WORD(&(memory[pc + 2]));
++		cpu.asregs.regs[reg] = val;
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: %s = 0x%x\n",
++					     opc, reg_names[reg], val);
++	      }
++	      break;
++	    case 0x1b: /* ld.b (register indirect) */
++	      {
++		int src  = (inst >> 3) & 0x7;
++		int dest = (inst >> 6) & 0x7;
++		int xv;
++		xv = cpu.asregs.regs[src];
++		cpu.asregs.regs[dest] = rbat (xv);
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: loading byte (0x%x) from 0x%x into %s\n", 
++					     opc,
++					     cpu.asregs.regs[dest], 
++					     xv,
++					     reg_names[dest]);
++	      }
++	      break;
++	    case 0x1c: /* lda.b */
++	      {
++		int reg = (inst >> 6) & 0x7;
++		unsigned int addr = EXTRACT_WORD(&memory[pc+2]);
++		cpu.asregs.regs[reg] = rbat (addr);
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: read byte 0x%x from 0x%x into %s\n", 
++					     opc,
++					     cpu.asregs.regs[reg],
++					     addr,
++					     reg_names[reg]);
++	      }
++	      break;
++	    case 0x1d: /* st.b */
++	      {
++		int dest = (inst >> 6) & 0x7;
++		int val  = (inst >> 3) & 0x7;
++		wbat (cpu.asregs.regs[dest], cpu.asregs.regs[val]);
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: storing byte %s (0x%x) at %s (0x%x)\n", 
++					     opc,
++					     reg_names[val], cpu.asregs.regs[val], 
++					     reg_names[dest], cpu.asregs.regs[dest]);
++	      }
++	      break;
++	    case 0x1e: /* sta.b */
++	      {
++		int reg = (inst >> 6) & 0x7;
++		unsigned int addr = EXTRACT_WORD(&memory[pc+2]);
++		wbat (addr, cpu.asregs.regs[reg]);
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: wrote byte 0x%x from %s into 0x%x\n",
++					     opc,
++					     cpu.asregs.regs[reg],
++					     reg_names[reg],
++					     addr);
++	      }
++	      break;
++	    case 0x1f: /* ldi.s (immediate) */
++	      {
++		int reg = (inst >> 6) & 0x7;
++
++		unsigned int val = EXTRACT_WORD(&(memory[pc + 2]));
++		cpu.asregs.regs[reg] = val;
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: %s = 0x%x\n",
++					     opc, reg_names[reg], val);
++	      }
++	      break;
++	    case 0x20: /* ld.s (register indirect) */
++	      {
++		int src  = (inst >> 3) & 0x7;
++		int dest = (inst >> 6) & 0x7;
++		int xv;
++		xv = cpu.asregs.regs[src];
++		cpu.asregs.regs[dest] = rsat (xv);
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: loading short (0x%x) from 0x%x into %s\n", 
++					     opc,
++					     cpu.asregs.regs[dest], 
++					     xv,
++					     reg_names[dest]);
++	      }
++	      break;
++	    case 0x21: /* lda.s */
++	      {
++		int reg = (inst >> 6) & 0x7;
++		unsigned int addr = EXTRACT_WORD(&memory[pc+2]);
++		cpu.asregs.regs[reg] = rsat (addr);
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: read short 0x%x from 0x%x into %s\n", 
++					     opc,
++					     cpu.asregs.regs[reg],
++					     addr,
++					     reg_names[reg]);
++	      }
++	      break;
++	    case 0x22: /* st.s */
++	      {
++		int dest = (inst >> 6) & 0x7;
++		int val  = (inst >> 3) & 0x7;
++		wsat (cpu.asregs.regs[dest], cpu.asregs.regs[val]);
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: storing short %s (0x%x) at %s (0x%x)\n", 
++					     opc,
++					     reg_names[val], cpu.asregs.regs[val], 
++					     reg_names[dest], cpu.asregs.regs[dest]);
++	      }
++	      break;
++	    case 0x23: /* sta.b */
++	      {
++		int reg = (inst >> 6) & 0x7;
++		unsigned int addr = EXTRACT_WORD(&memory[pc+2]);
++		wsat (addr, cpu.asregs.regs[reg]);
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: wrote short 0x%x from %s into 0x%x\n",
++					     opc,
++					     cpu.asregs.regs[reg],
++					     reg_names[reg],
++					     addr);
++	      }
++	      break;
++	    case 0x24: /* jmp */
++	      {
++		int reg = (inst >> 6) & 0x7;
++		pc = cpu.asregs.regs[reg] - 2;
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: jumping to 0x%x\n", opc, pc + 2);
++	      }
++	      break;
+ 	    default:
+ 	      cpu.asregs.exception = SIGILL;
+ 	      break;

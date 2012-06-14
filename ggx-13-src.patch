@@ -1,0 +1,156 @@
+diff -r 8f37e0f7eb54 gas/ChangeLog.ggx
+--- a/gas/ChangeLog.ggx	Mon Mar 17 03:32:01 2008 -0700
++++ b/gas/ChangeLog.ggx	Wed Mar 19 06:36:52 2008 -0700
+@@ -1,3 +1,7 @@ 2008-03-16  Anthony Green  <green@spinda
++2008-03-17  Anthony Green  <green@spindazzle.org>
++
++	* config/tc-ggx.c (md_assemble): Process GGX_F1_ABC instructions.
++
+ 2008-03-16  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/tc-ggx.c (md_assemble): Process GGX_F1_4 instructions.
+diff -r 8f37e0f7eb54 gas/config/tc-ggx.c
+--- a/gas/config/tc-ggx.c	Mon Mar 17 03:32:01 2008 -0700
++++ b/gas/config/tc-ggx.c	Wed Mar 19 06:36:52 2008 -0700
+@@ -205,6 +205,25 @@ md_assemble (char *str)
+       break;
+     case GGX_F1_ABC:
+       iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      {
++	int a, b, c;
++	a = parse_register_operand (&op_end);
++	if (*op_end != ',')
++	  as_warn ("expecting comma delimeted register operands");
++	op_end++;
++	b  = parse_register_operand (&op_end);
++	if (*op_end != ',')
++	  as_warn ("expecting comma delimeted register operands");
++	op_end++;
++	c  = parse_register_operand (&op_end);
++	iword += (a << 6) + (b << 3) + c;
++	while (ISSPACE (*op_end))
++	  op_end++;
++	if (*op_end != 0)
++	  as_warn ("extra stuff on line ignored");
++      }
+       break;
+     case GGX_F1_A4:
+       iword = opcode->opcode << 9;
+diff -r 8f37e0f7eb54 opcodes/ChangeLog.ggx
+--- a/opcodes/ChangeLog.ggx	Mon Mar 17 03:32:01 2008 -0700
++++ b/opcodes/ChangeLog.ggx	Wed Mar 19 06:36:52 2008 -0700
+@@ -1,3 +1,8 @@ 2008-03-16  Anthony Green  <green@spinda
++2008-03-17  Anthony Green  <green@spindazzle.org>
++
++	* ggx-dis.c (print_insn_ggx): Add GGX_F1_ABC support.
++	(ggx_form1_opc_info): Add add.l, push and pop.
++
+ 2008-03-16  Anthony Green  <green@spindazzle.org>
+ 
+ 	* ggx-opc.c (ggx_form1_opc_info): Add jsra and ret.
+diff -r 8f37e0f7eb54 opcodes/ggx-dis.c
+--- a/opcodes/ggx-dis.c	Mon Mar 17 03:32:01 2008 -0700
++++ b/opcodes/ggx-dis.c	Wed Mar 19 06:36:52 2008 -0700
+@@ -68,6 +68,12 @@ print_insn_ggx (bfd_vma addr, struct dis
+ 	       reg_names[OP_A(iword)], 
+ 	       reg_names[OP_B(iword)]);
+ 	  break;
++	case GGX_F1_ABC:
++	  fpr (stream, "%s\t%s, %s, %s", opcode->name,
++	       reg_names[OP_A(iword)], 
++	       reg_names[OP_B(iword)], 
++	       reg_names[OP_C(iword)]);
++	  break;
+ 	case GGX_F1_A4:
+ 	  {
+ 	    unsigned imm;
+diff -r 8f37e0f7eb54 opcodes/ggx-opc.c
+--- a/opcodes/ggx-opc.c	Mon Mar 17 03:32:01 2008 -0700
++++ b/opcodes/ggx-opc.c	Wed Mar 19 06:36:52 2008 -0700
+@@ -51,9 +51,9 @@ const ggx_opc_info_t ggx_form1_opc_info[
+     { 0x01, GGX_F1_AB,   "mov" },
+     { 0x02, GGX_F1_4,    "jsra" },
+     { 0x03, GGX_F1_NARG, "ret" },
+-    { 0x04, GGX_F1_NARG, "bad" },
+-    { 0x05, GGX_F1_NARG, "bad" },
+-    { 0x06, GGX_F1_NARG, "bad" },
++    { 0x04, GGX_F1_ABC,  "add.l" },
++    { 0x05, GGX_F1_AB,   "push" },
++    { 0x06, GGX_F1_AB,   "pop" },
+     { 0x07, GGX_F1_NARG, "bad" },
+     { 0x08, GGX_F1_NARG, "bad" },
+     { 0x09, GGX_F1_NARG, "bad" },
+diff -r 8f37e0f7eb54 sim/ggx/ChangeLog
+--- a/sim/ggx/ChangeLog	Mon Mar 17 03:32:01 2008 -0700
++++ b/sim/ggx/ChangeLog	Wed Mar 19 06:36:52 2008 -0700
+@@ -1,3 +1,7 @@ 2008-03-16  Anthony Green  <green@spinda
++2008-03-19  Anthony Green  <green@spindazzle.org>
++
++	* interp.c (sim_resume): Add push, pop and add.l.
++
+ 2008-03-16  Anthony Green  <green@spindazzle.org>
+ 
+ 	* interp.c (EXTRACT_WORD): Define.
+diff -r 8f37e0f7eb54 sim/ggx/interp.c
+--- a/sim/ggx/interp.c	Mon Mar 17 03:32:01 2008 -0700
++++ b/sim/ggx/interp.c	Wed Mar 19 06:36:52 2008 -0700
+@@ -364,6 +364,57 @@ sim_resume (sd, step, siggnal)
+  					     opc, pc + 2);
+   	      }
+   	      break;
++	    case 0x04: /* add.l */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int c = inst & 0x7;
++		unsigned bv = cpu.asregs.regs[b];
++		unsigned cv = cpu.asregs.regs[c];
++		cpu.asregs.regs[a] = bv + cv;
++
++ 		if (tracing)
++ 		  callback->printf_filtered (callback, 
++ 					     "# 0x%08x: %s (0x%x) = %s (0x%x) + %s (0x%s)\n",
++ 					     opc, 
++					     reg_names[a], cpu.asregs.regs[a],
++					     reg_names[b], bv,
++					     reg_names[c], cv);
++	      }
++	      break;
++	    case 0x05: /* push */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int sp = cpu.asregs.regs[a] - 4;
++		wlat (sp, cpu.asregs.regs[b]);
++		cpu.asregs.regs[a] = sp;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: pushing %s (0x%x) to %s (0x%x)\n", 
++					     opc,
++					     reg_names[b], cpu.asregs.regs[b], 
++					     reg_names[a], sp);
++	      }
++	      break;
++	    case 0x06: /* pop */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int sp = cpu.asregs.regs[a];
++		cpu.asregs.regs[b] = rlat (sp);
++		cpu.asregs.regs[a] = sp + 4;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: popping 0x%x from %s (0x%x) into %s\n", 
++					     opc,
++					     cpu.asregs.regs[b], 
++					     reg_names[a], sp,
++					     reg_names[b]);
++	      }
++	      break;
+ 	    default:
+ 	      cpu.asregs.exception = SIGILL;
+ 	      break;

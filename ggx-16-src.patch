@@ -1,0 +1,339 @@
+diff -r 84f4d06314ff gas/ChangeLog.ggx
+--- a/gas/ChangeLog.ggx	Thu Mar 20 05:59:22 2008 -0700
++++ b/gas/ChangeLog.ggx	Thu Mar 20 17:36:47 2008 -0700
+@@ -1,3 +1,7 @@ 2008-03-19  Anthony Green  <green@spinda
++2008-03-20  Anthony Green  <green@spindazzle.org>
++
++	* config/tc-ggx.c (md_assemble): Add GGX_F1_A support.
++
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/tc-ggx.c (md_assemble): Add GGX_F1_4A, GGX_F1_ABi,
+diff -r 84f4d06314ff gas/config/tc-ggx.c
+--- a/gas/config/tc-ggx.c	Thu Mar 20 05:59:22 2008 -0700
++++ b/gas/config/tc-ggx.c	Thu Mar 20 17:36:47 2008 -0700
+@@ -184,6 +184,17 @@ md_assemble (char *str)
+       break;
+     case GGX_F1_A:
+       iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      {
++	int reg;
++	reg = parse_register_operand (&op_end);
++	while (ISSPACE (*op_end))
++	  op_end++;
++	if (*op_end != 0)
++	  as_warn ("extra stuff on line ignored");
++	iword += (reg << 6);
++      }
+       break;
+     case GGX_F1_AB:
+       iword = opcode->opcode << 9;
+diff -r 84f4d06314ff opcodes/ChangeLog.ggx
+--- a/opcodes/ChangeLog.ggx	Thu Mar 20 05:59:22 2008 -0700
++++ b/opcodes/ChangeLog.ggx	Thu Mar 20 17:36:47 2008 -0700
+@@ -1,3 +1,9 @@ 2008-03-19  Anthony Green  <green@spinda
++2008-03-20  Anthony Green  <green@spindazzle.org>
++
++	* ggx-dis.c (print_insn_ggx): Add GGX_F1_A support.
++	* ggx-opc.c (ggx_form1_opc_info): Add jmpa, jsr, cmp, beq, bne,
++	blt, bgt, bltu, bgtu, bge, ble, bgeu, and bleu.
++
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
+ 
+ 	* ggx-dis.c (print_insn_ggx): Add GGX_F1_4A, GGX_F1_ABi,
+diff -r 84f4d06314ff opcodes/ggx-dis.c
+--- a/opcodes/ggx-dis.c	Thu Mar 20 05:59:22 2008 -0700
++++ b/opcodes/ggx-dis.c	Thu Mar 20 17:36:47 2008 -0700
+@@ -62,6 +62,10 @@ print_insn_ggx (bfd_vma addr, struct dis
+ 	{
+ 	case GGX_F1_NARG:
+ 	  fpr (stream, "%s", opcode->name);
++	  break;
++	case GGX_F1_A:
++	  fpr (stream, "%s\t%s", opcode->name,
++	       reg_names[OP_A(iword)]);
+ 	  break;
+ 	case GGX_F1_AB:
+ 	  fpr (stream, "%s\t%s, %s", opcode->name,
+diff -r 84f4d06314ff opcodes/ggx-opc.c
+--- a/opcodes/ggx-opc.c	Thu Mar 20 05:59:22 2008 -0700
++++ b/opcodes/ggx-opc.c	Thu Mar 20 17:36:47 2008 -0700
+@@ -60,19 +60,19 @@ const ggx_opc_info_t ggx_form1_opc_info[
+     { 0x0a, GGX_F1_AiB,  "st.l" },
+     { 0x0b, GGX_F1_ABi4, "ldo.l" },
+     { 0x0c, GGX_F1_AiB4, "sto.l" },
+-    { 0x0d, GGX_F1_NARG, "bad" },
+-    { 0x0e, GGX_F1_NARG, "bad" },
+-    { 0x0f, GGX_F1_NARG, "bad" },
+-    { 0x10, GGX_F1_NARG, "bad" },
+-    { 0x11, GGX_F1_NARG, "bad" },
+-    { 0x12, GGX_F1_NARG, "bad" },
+-    { 0x13, GGX_F1_NARG, "bad" },
+-    { 0x14, GGX_F1_NARG, "bad" },
+-    { 0x15, GGX_F1_NARG, "bad" },
+-    { 0x16, GGX_F1_NARG, "bad" },
+-    { 0x17, GGX_F1_NARG, "bad" },
+-    { 0x18, GGX_F1_NARG, "bad" },
+-    { 0x19, GGX_F1_NARG, "bad" },
++    { 0x0d, GGX_F1_AB,   "cmp" },
++    { 0x0e, GGX_F1_4,    "beq" },
++    { 0x0f, GGX_F1_4,    "bne" },
++    { 0x10, GGX_F1_4,    "blt" },
++    { 0x11, GGX_F1_4,    "bgt" },
++    { 0x12, GGX_F1_4,    "bltu" },
++    { 0x13, GGX_F1_4,    "bgtu" },
++    { 0x14, GGX_F1_4,    "bge" },
++    { 0x15, GGX_F1_4,    "ble" },
++    { 0x16, GGX_F1_4,    "bgeu" },
++    { 0x17, GGX_F1_4,    "bleu" },
++    { 0x18, GGX_F1_A,    "jsr" },
++    { 0x19, GGX_F1_4,    "jmpa" },
+     { 0x1a, GGX_F1_NARG, "bad" },
+     { 0x1b, GGX_F1_NARG, "bad" },
+     { 0x1c, GGX_F1_NARG, "bad" },
+diff -r 84f4d06314ff sim/ggx/ChangeLog
+--- a/sim/ggx/ChangeLog	Thu Mar 20 05:59:22 2008 -0700
++++ b/sim/ggx/ChangeLog	Thu Mar 20 17:36:47 2008 -0700
+@@ -1,3 +1,10 @@ 2008-03-19  Anthony Green  <green@spinda
++2008-03-20  Anthony Green  <green@spindazzle.org>
++
++	* interp.c (struct ggx_regset): Add condition code, cc.
++	(CC_GT, CC_LT, CC_EQ, CC_GTU, CC_LTU): Define.
++	(sim_resume): Add jmpa, jsr, cmp, beq, bne, blt, bgt, bltu, bgtu,
++	bge, ble, bgeu, and bleu.
++
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
+ 
+ 	* interp.c (sim_resume): Add ld.l, st.l, lda.l, sta.l.
+diff -r 84f4d06314ff sim/ggx/interp.c
+--- a/sim/ggx/interp.c	Thu Mar 20 05:59:22 2008 -0700
++++ b/sim/ggx/interp.c	Thu Mar 20 17:36:47 2008 -0700
+@@ -100,11 +100,18 @@ struct ggx_regset
+ {
+   word		  regs[NUM_GGX_REGS];	/* primary registers */
+   word		  pc;			/* the program counter */
++  word            cc;                   /* the condition code reg */
+   int		  exception;
+   unsigned long   msize;
+   unsigned char * memory;
+   unsigned long   insts;                /* instruction counter */
+ };
++
++#define CC_GT  1<<0
++#define CC_LT  1<<1
++#define CC_EQ  1<<2
++#define CC_GTU 1<<3
++#define CC_LTU 1<<4
+ 
+ union
+ {
+@@ -513,6 +520,207 @@ sim_resume (sd, step, siggnal)
+ 					     addr);
+ 	      }
+ 	      break;
++	    case 0x0d: /* cmp */
++	      {
++		int a  = (inst >> 6) & 0x7;
++		int b  = (inst >> 3) & 0x7;
++		int cc = 0;
++		int va = cpu.asregs.regs[a];
++		int vb = cpu.asregs.regs[b]; 
++
++		if (va == vb)
++		  cc = CC_EQ;
++		else
++		  {
++		    cc |= (va < vb ? CC_LT : 0);
++		    cc |= (va > vb ? CC_GT : 0);
++		    cc |= ((unsigned int) va < (unsigned int) vb ? CC_LTU : 0);
++		    cc |= ((unsigned int) va > (unsigned int) vb ? CC_GTU : 0);
++		  }
++
++		cpu.asregs.cc = cc;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: comparing %s (0x%x) to %s (0x%x)\n", 
++					     opc,
++					     reg_names[a], va,
++					     reg_names[b], vb);
++	      }
++	      break;
++	    case 0x0e: /* beq */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if (cpu.asregs.cc & CC_EQ)
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt);
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x0f: /* bne */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if (! (cpu.asregs.cc & CC_EQ))
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt);
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x10: /* blt */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if (cpu.asregs.cc & CC_LT)
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt); 
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x11: /* bgt */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if (cpu.asregs.cc & CC_GT)
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt);
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x12: /* bltu */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if (cpu.asregs.cc & CC_LTU)
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt); 
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x13: /* bgtu */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if (cpu.asregs.cc & CC_GTU)
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt); 
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x14: /* bge */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if ((cpu.asregs.cc & CC_GT) || (cpu.asregs.cc & CC_EQ))		   
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt);
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x15: /* ble */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if ((cpu.asregs.cc & CC_LT) || (cpu.asregs.cc & CC_EQ))
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt); 
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x16: /* bgeu */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if ((cpu.asregs.cc & CC_GTU) || (cpu.asregs.cc & CC_EQ))
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt); 
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x17: /* bleu */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		if ((cpu.asregs.cc & CC_LTU) || (cpu.asregs.cc & CC_EQ))
++		  {
++		    pc = tgt - 2;
++		    if (tracing)
++		      callback->printf_filtered (callback, 
++						 "# 0x%08x: branching to 0x%x\n", opc, tgt); 
++		  }
++		else
++		  pc += 4;
++	      }
++	      break;
++	    case 0x18: /* jsr */
++	      {
++		unsigned int fn = cpu.asregs.regs[(inst >> 6) & 0x7];
++		unsigned int sp = cpu.asregs.regs[1];
++
++		/* Push the return address.  */
++		sp -= 4;
++		wlat (sp, pc + 2);
++		
++		/* Push the current frame pointer.  */
++		sp -= 4;
++		wlat (sp, cpu.asregs.regs[0]);
++
++		/* Uncache the stack pointer and set the fp & pc.  */
++		cpu.asregs.regs[1] = sp;
++		cpu.asregs.regs[0] = sp;
++		pc = fn - 2;
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: jumping to subroutine 0x%x\n", 
++					     opc,
++					     pc + 2);
++	      }
++	      break;
++	    case 0x19: /* jmpa */
++	      {
++		unsigned int tgt = EXTRACT_WORD(&memory[pc+2]);
++		pc = tgt - 2;
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: jumping to 0x%x\n", opc, tgt); 
++	      }
++	      break;
+ 	    default:
+ 	      cpu.asregs.exception = SIGILL;
+ 	      break;

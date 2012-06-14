@@ -1,0 +1,356 @@
+diff -r d86e578d71dd gas/ChangeLog.ggx
+--- a/gas/ChangeLog.ggx	Wed Mar 19 06:36:53 2008 -0700
++++ b/gas/ChangeLog.ggx	Wed Mar 19 09:03:59 2008 -0700
+@@ -1,3 +1,8 @@ 2008-03-17  Anthony Green  <green@spinda
++2008-03-19  Anthony Green  <green@spindazzle.org>
++
++	* config/tc-ggx.c (md_assemble): Add GGX_F1_4A, GGX_F1_ABi,
++	GGX_F1_AiB support.
++
+ 2008-03-17  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/tc-ggx.c (md_assemble): Process GGX_F1_ABC instructions.
+diff -r d86e578d71dd gas/config/tc-ggx.c
+--- a/gas/config/tc-ggx.c	Wed Mar 19 06:36:53 2008 -0700
++++ b/gas/config/tc-ggx.c	Wed Mar 19 09:03:59 2008 -0700
+@@ -276,6 +276,105 @@ md_assemble (char *str)
+ 		     BFD_RELOC_32);
+       }
+       break;
++    case GGX_F1_ABi:
++      iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      {
++	int a, b;
++	a = parse_register_operand (&op_end);
++	if (*op_end != ',')
++	  as_warn ("expecting comma delimeted register operands");
++	op_end++;
++	if (*op_end != '(')
++	  {
++	    as_bad ("expecting indirect register `($rA)'");
++	    ignore_rest_of_line ();
++	    return;
++	  }
++	op_end++;
++	b = parse_register_operand (&op_end);
++	if (*op_end != ')')
++	  {
++	    as_bad ("missing closing parenthesis");
++	    ignore_rest_of_line ();
++	    return;
++	  }
++	op_end++;
++	iword += (a << 6) + (b << 3);
++	while (ISSPACE (*op_end))
++	  op_end++;
++	if (*op_end != 0)
++	  as_warn ("extra stuff on line ignored");
++      }
++      break;
++    case GGX_F1_AiB:
++      iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      {
++	int a, b;
++	if (*op_end != '(')
++	  {
++	    as_bad ("expecting indirect register `($rA)'");
++	    ignore_rest_of_line ();
++	    return;
++	  }
++	op_end++;
++	a = parse_register_operand (&op_end);
++	if (*op_end != ')')
++	  {
++	    as_bad ("missing closing parenthesis");
++	    ignore_rest_of_line ();
++	    return;
++	  }
++	op_end++;
++	if (*op_end != ',')
++	  as_warn ("expecting comma delimeted register operands");
++	op_end++;
++	b = parse_register_operand (&op_end);
++	iword += (a << 6) + (b << 3);
++	while (ISSPACE (*op_end))
++	  op_end++;
++	if (*op_end != 0)
++	  as_warn ("extra stuff on line ignored");
++      }
++      break;
++    case GGX_F1_4A:
++      iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      {
++	expressionS arg;
++	char *where;
++	int a;
++	
++	op_end = parse_exp_save_ilp (op_end, &arg);
++	where = frag_more (4);
++	fix_new_exp (frag_now,
++		     (where - frag_now->fr_literal),
++		     4,
++		     &arg,
++		     0,
++		     BFD_RELOC_32);
++
++	if (*op_end != ',')
++	  {
++	    as_bad ("expecting comma delimited operands");
++	    ignore_rest_of_line ();
++	    return;
++	  }
++	op_end++;
++
++ 	a = parse_register_operand (&op_end);
++	while (ISSPACE (*op_end))
++	  op_end++;
++	if (*op_end != 0)
++	  as_warn ("extra stuff on line ignored");
++
++	iword += (a << 6);
++      }
++      break;
+     case GGX_F2_NARG:
+       iword = opcode->opcode << 12;
+       while (ISSPACE (*op_end))
+diff -r d86e578d71dd include/opcode/ChangeLog.ggx
+--- a/include/opcode/ChangeLog.ggx	Wed Mar 19 06:36:53 2008 -0700
++++ b/include/opcode/ChangeLog.ggx	Wed Mar 19 09:03:59 2008 -0700
+@@ -1,3 +1,7 @@ 2008-03-16  Anthony Green  <green@spinda
++2008-03-19  Anthony Green  <green@spindazzle.org>
++
++	* ggx.h (GGX_F1_AiB, GGX_F1_ABi, GGX_F1_4A): Define.
++
+ 2008-03-16  Anthony Green  <green@spindazzle.org>
+ 
+ 	* ggx.h (GGX_F1_4): Define.
+diff -r d86e578d71dd include/opcode/ggx.h
+--- a/include/opcode/ggx.h	Wed Mar 19 06:36:53 2008 -0700
++++ b/include/opcode/ggx.h	Wed Mar 19 09:03:59 2008 -0700
+@@ -26,6 +26,9 @@ 02110-1301, USA.  */
+     Some use A, B and C registers                   (GGX_F1_ABC)
+     Some use A and consume a 4 byte immediate value (GGX_F1_A4)
+     Some use just a 4 byte immediate value          (GGX_F1_4)
++    Some use Y and an indirect X                    (GGX_F1_AiB)
++    Some use X and an indirect Y                    (GGX_F1_ABi)
++    Some consume a 4 byte immediate value and use X (GGX_F1_4A)
+ 
+   Form 2 instructions also come in different flavors:
+ 
+@@ -39,6 +42,9 @@ 02110-1301, USA.  */
+ #define GGX_F1_ABC  0x103
+ #define GGX_F1_A4   0x104
+ #define GGX_F1_4    0x105
++#define GGX_F1_AiB  0x106
++#define GGX_F1_ABi  0x107
++#define GGX_F1_4A   0x108
+ 
+ #define GGX_F2_NARG 0x200
+ #define GGX_F2_12V  0x201
+diff -r d86e578d71dd opcodes/ChangeLog.ggx
+--- a/opcodes/ChangeLog.ggx	Wed Mar 19 06:36:53 2008 -0700
++++ b/opcodes/ChangeLog.ggx	Wed Mar 19 09:03:59 2008 -0700
+@@ -1,7 +1,13 @@ 2008-03-17  Anthony Green  <green@spinda
++2008-03-19  Anthony Green  <green@spindazzle.org>
++
++	* ggx-dis.c (print_insn_ggx): Add GGX_F1_4A, GGX_F1_ABi,
++	GGX_F1_AiB support.
++	* ggx-opc.c (ggx_form1_opc_info): Add ld.l, lda.l, st.l, sta.l.
++
+ 2008-03-17  Anthony Green  <green@spindazzle.org>
+ 
+ 	* ggx-dis.c (print_insn_ggx): Add GGX_F1_ABC support.
+-	(ggx_form1_opc_info): Add add.l, push and pop.
++	* ggx-opc.c (ggx_form1_opc_info): Add add.l, push and pop.
+ 
+ 2008-03-16  Anthony Green  <green@spindazzle.org>
+ 
+diff -r d86e578d71dd opcodes/ggx-dis.c
+--- a/opcodes/ggx-dis.c	Wed Mar 19 06:36:53 2008 -0700
++++ b/opcodes/ggx-dis.c	Wed Mar 19 09:03:59 2008 -0700
+@@ -95,6 +95,25 @@ print_insn_ggx (bfd_vma addr, struct dis
+ 	    length = 6;
+ 	  }
+ 	  break;
++	case GGX_F1_AiB:
++	  fpr (stream, "%s\t(%s), %s", opcode->name,
++	       reg_names[OP_A(iword)], reg_names[OP_B(iword)]);
++	  break;
++	case GGX_F1_ABi:
++	  fpr (stream, "%s\t%s, (%s)", opcode->name,
++	       reg_names[OP_A(iword)], reg_names[OP_B(iword)]);
++	  break;
++	case GGX_F1_4A:
++	  {
++	    unsigned imm;
++	    if ((status = info->read_memory_func (addr+2, buffer, 4, info)))
++	      goto fail;
++	    imm = bfd_getb32 (buffer);
++	    fpr (stream, "%s\t0x%x, %s", 
++		 opcode->name, imm, reg_names[OP_A(iword)]);
++	    length = 6;
++	  }
++	  break;
+ 	default:
+ 	  abort();
+ 	}
+diff -r d86e578d71dd opcodes/ggx-opc.c
+--- a/opcodes/ggx-opc.c	Wed Mar 19 06:36:53 2008 -0700
++++ b/opcodes/ggx-opc.c	Wed Mar 19 09:03:59 2008 -0700
+@@ -54,10 +54,10 @@ const ggx_opc_info_t ggx_form1_opc_info[
+     { 0x04, GGX_F1_ABC,  "add.l" },
+     { 0x05, GGX_F1_AB,   "push" },
+     { 0x06, GGX_F1_AB,   "pop" },
+-    { 0x07, GGX_F1_NARG, "bad" },
+-    { 0x08, GGX_F1_NARG, "bad" },
+-    { 0x09, GGX_F1_NARG, "bad" },
+-    { 0x0a, GGX_F1_NARG, "bad" },
++    { 0x07, GGX_F1_A4,   "lda.l" },
++    { 0x08, GGX_F1_4A,   "sta.l" },
++    { 0x09, GGX_F1_ABi,  "ld.l" },
++    { 0x0a, GGX_F1_AiB,  "st.l" },
+     { 0x0b, GGX_F1_NARG, "bad" },
+     { 0x0c, GGX_F1_NARG, "bad" },
+     { 0x0d, GGX_F1_NARG, "bad" },
+diff -r d86e578d71dd sim/ggx/ChangeLog
+--- a/sim/ggx/ChangeLog	Wed Mar 19 06:36:53 2008 -0700
++++ b/sim/ggx/ChangeLog	Wed Mar 19 09:03:59 2008 -0700
+@@ -1,4 +1,10 @@ 2008-03-19  Anthony Green  <green@spinda
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
++
++	* interp.c (sim_resume): Add ld.l, st.l, lda.l, sta.l.
++	jsra should set $fp == $sp.
++	Fix jsra and ret semantics.
++
++2008-03-18  Anthony Green  <green@spindazzle.org>
+ 
+ 	* interp.c (sim_resume): Add push, pop and add.l.
+ 
+diff -r d86e578d71dd sim/ggx/interp.c
+--- a/sim/ggx/interp.c	Wed Mar 19 06:36:53 2008 -0700
++++ b/sim/ggx/interp.c	Wed Mar 19 09:03:59 2008 -0700
+@@ -327,15 +327,16 @@ sim_resume (sd, step, siggnal)
+  		unsigned int sp = cpu.asregs.regs[1];
+  
+  		/* Push the return address.  */
++		sp -= 4;
+  		wlat (sp, pc + 6);
+- 		sp -= 4;
+  		
+  		/* Push the current frame pointer.  */
++ 		sp -= 4;
+  		wlat (sp, cpu.asregs.regs[0]);
+- 		sp -= 4;
+  
+- 		/* Uncache the stack pointer and set the pc.  */
+- 		cpu.asregs.regs[1] = sp;
++ 		/* Uncache the stack pointer and set the pc and $fp.  */
++		cpu.asregs.regs[1] = sp;
++		cpu.asregs.regs[0] = sp;
+  		pc = fn - 2;
+  		if (tracing)
+  		  callback->printf_filtered (callback, 
+@@ -345,15 +346,15 @@ sim_resume (sd, step, siggnal)
+  	      break;
+  	    case 0x03: /* ret */
+  	      {
+- 		unsigned int sp = cpu.asregs.regs[1];
++ 		unsigned int sp = cpu.asregs.regs[0];
+  
+  		/* Pop the frame pointer.  */
++ 		cpu.asregs.regs[0] = rlat (sp);
+  		sp += 4;
+- 		cpu.asregs.regs[0] = rlat (sp);
+  		
+  		/* Pop the return address.  */
++ 		pc = rlat (sp) - 2;
+  		sp += 4;
+- 		pc = rlat (sp) - 2;
+  
+  		/* Uncache the stack pointer.  */
+  		cpu.asregs.regs[1] = sp;
+@@ -375,7 +376,7 @@ sim_resume (sd, step, siggnal)
+ 
+  		if (tracing)
+  		  callback->printf_filtered (callback, 
+- 					     "# 0x%08x: %s (0x%x) = %s (0x%x) + %s (0x%s)\n",
++ 					     "# 0x%08x: %s (0x%x) = %s (0x%x) + %s (0x%x)\n",
+  					     opc, 
+ 					     reg_names[a], cpu.asregs.regs[a],
+ 					     reg_names[b], bv,
+@@ -413,6 +414,69 @@ sim_resume (sd, step, siggnal)
+ 					     cpu.asregs.regs[b], 
+ 					     reg_names[a], sp,
+ 					     reg_names[b]);
++	      }
++	      break;
++	    case 0x07: /* lda.l */
++	      {
++		int reg = (inst >> 6) & 0x7;
++		unsigned int addr = EXTRACT_WORD(&memory[pc+2]);
++		cpu.asregs.regs[reg] = rlat (addr);
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: read word 0x%x from 0x%x into %s\n", 
++					     opc,
++					     cpu.asregs.regs[reg],
++					     addr,
++					     reg_names[reg]);
++	      }
++	      break;
++	    case 0x08: /* sta.l */
++	      {
++		int reg = (inst >> 6) & 0x7;
++		unsigned int addr = EXTRACT_WORD(&memory[pc+2]);
++		wlat (addr, cpu.asregs.regs[reg]);
++		pc += 4;
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: wrote word 0x%x from %s into 0x%x\n",
++					     opc,
++					     cpu.asregs.regs[reg],
++					     reg_names[reg],
++					     addr);
++	      }
++	      break;
++	    case 0x09: /* ld.l (register indirect) */
++	      {
++		int src  = (inst >> 3) & 0x7;
++		int dest = (inst >> 6) & 0x7;
++		int xv;
++		xv = cpu.asregs.regs[src];
++		cpu.asregs.regs[dest] = rlat (xv);
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: loading word (0x%x) from 0x%x into %s\n", 
++					     opc,
++					     cpu.asregs.regs[dest], 
++					     xv,
++					     reg_names[dest]);
++	      }
++	      break;
++	    case 0x0a: /* st.l */
++	      {
++		int dest = (inst >> 6) & 0x7;
++		int val  = (inst >> 3) & 0x7;
++		wlat (cpu.asregs.regs[dest], cpu.asregs.regs[val]);
++
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: storing %s (0x%x) at %s (0x%x)\n", 
++					     opc,
++					     reg_names[val], cpu.asregs.regs[val], 
++					     reg_names[dest], cpu.asregs.regs[dest]);
+ 	      }
+ 	      break;
+ 	    default:

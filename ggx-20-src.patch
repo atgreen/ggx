@@ -1,0 +1,150 @@
+diff -r 0e0097229f95 newlib/libc/include/machine/setjmp.h
+--- a/newlib/libc/include/machine/setjmp.h	Mon Mar 24 17:27:34 2008 -0700
++++ b/newlib/libc/include/machine/setjmp.h	Tue Mar 25 08:10:07 2008 -0700
+@@ -185,6 +185,10 @@ _BEGIN_STD_C
+ #ifdef __frv__
+ #define _JBLEN (68/2)  /* room for 68 32-bit regs */
+ #define _JBTYPE double
++#endif
++
++#ifdef __ggx__
++#define _JBLEN 8
+ #endif
+ 
+ #ifdef __CRX__
+diff -r 0e0097229f95 newlib/libc/machine/ggx/setjmp.S
+--- a/newlib/libc/machine/ggx/setjmp.S	Mon Mar 24 17:27:34 2008 -0700
++++ b/newlib/libc/machine/ggx/setjmp.S	Tue Mar 25 08:10:07 2008 -0700
+@@ -1,15 +1,28 @@
+ # setjmp/longjmp for ggx.  The jmpbuf looks like this:
+ #	
+ # Register	jmpbuf offset
+-# $fp		0x04
+-# $sp		0x08
+-# $r0-$r5	0x0c
++#   $r0		  0x00
++#   $r1		  0x04
++#   $r2		  0x08
++#   $r3		  0x0c
++#   $r4		  0x10
++#   $r5		  0x14
++#   $fp		  0x18
++#   $sp		  0x1c
+ 
+ 	.text
+ 	.global	setjmp
+ 	.type	setjmp,@function
+ setjmp:
+-	# Do it!
++	st.l	($r0),     $r0
++	sto.l	0x04($r0), $r1
++	sto.l	0x08($r0), $r2
++	sto.l	0x0c($r0), $r3
++	sto.l	0x10($r0), $r4
++	sto.l	0x14($r0), $r5
++	sto.l	0x18($r0), $sp
++	sto.l	0x1c($r0), $fp
++	ldi.l	$r0, 0x00
+ 	ret
+ .Lend1:
+ 	.size	setjmp,.Lend1-setjmp
+@@ -17,7 +30,27 @@ setjmp:
+ 	.global	longjmp
+ 	.type	longjmp,@function
+ longjmp:
+-	# Do it!
++	ldi.l	$r2, 0x00
++	cmp	$r1, $r2
++	beq	.Lreturn1
++	ldo.l	$r1, 0x04($r0)
++	ldo.l	$r2, 0x08($r0)
++	ldo.l	$r3, 0x0c($r0)
++	ldo.l	$r4, 0x10($r0)
++	ldo.l	$r5, 0x14($r0)
++	ldo.l	$sp, 0x18($r0)
++	ldo.l	$fp, 0x1c($r0)
++	mov	$r0, $r1
++	ret
++.Lreturn1:
++	ldo.l	$r1, 0x04($r0)
++	ldo.l	$r2, 0x08($r0)
++	ldo.l	$r3, 0x0c($r0)
++	ldo.l	$r4, 0x10($r0)
++	ldo.l	$r5, 0x14($r0)
++	ldo.l	$sp, 0x18($r0)
++	ldo.l	$fp, 0x1c($r0)
++	ldi.l	$r0, 0x01
+ 	ret
+ .Lend2:
+ 	.size	longjmp,.Lend2-longjmp
+diff -r 0e0097229f95 sim/ggx/ChangeLog
+--- a/sim/ggx/ChangeLog	Mon Mar 24 17:27:34 2008 -0700
++++ b/sim/ggx/ChangeLog	Tue Mar 25 08:10:07 2008 -0700
+@@ -1,3 +1,8 @@ 2008-03-23  Anthony Green  <green@spinda
++2008-03-24  Anthony Green  <green@spindazzle.org>
++
++	* interp.c (sim_resume): Add missing breaks.
++	(sim_resume): Fix neg implementation.
++
+ 2008-03-23  Anthony Green  <green@spindazzle.org>
+ 
+ 	* interp.c (sim_load): Don't require a .bss section.
+diff -r 0e0097229f95 sim/ggx/interp.c
+--- a/sim/ggx/interp.c	Mon Mar 24 17:27:34 2008 -0700
++++ b/sim/ggx/interp.c	Tue Mar 25 08:10:07 2008 -0700
+@@ -1063,16 +1063,15 @@ sim_resume (sd, step, siggnal)
+ 	      {
+ 		int a  = (inst >> 6) & 0x7;
+ 		int b  = (inst >> 3) & 0x7;
+-		int av = cpu.asregs.regs[a];
+ 		int bv = cpu.asregs.regs[b];
+-		cpu.asregs.regs[b] = - av;
++		cpu.asregs.regs[a] = - bv;
+ 		  
+ 		if (tracing)
+ 		  callback->printf_filtered (callback, 
+ 					     "# 0x%08x: - %s (0x%x) stored in %s (0x%x)\n", 
+ 					     opc,
+-					     reg_names[a], av,
+-					     reg_names[b], cpu.asregs.regs[b]);
++					     reg_names[b], bv,
++					     reg_names[a], cpu.asregs.regs[a]);
+ 	      }
+ 	      break;
+ 	    case 0x2a: /* or */
+@@ -1175,6 +1174,7 @@ sim_resume (sd, step, siggnal)
+ 						   "# program exiting with code 0x%x\n",
+ 						   cpu.asregs.regs[2]);
+ 		      cpu.asregs.exception = SIGQUIT;
++		      break;
+ 		    }
+ 		  case 0x5: /* SYS_write */
+ 		    {
+@@ -1185,6 +1185,7 @@ sim_resume (sd, step, siggnal)
+ 		      while (count-- > 0)
+ 			putchar (*(str++));
+ 		      cpu.asregs.regs[2] = len;
++		      break;
+ 		    }
+ 		    break;
+ 		  default:
+@@ -1316,10 +1317,6 @@ sim_trace (sd)
+   return 1;
+ }
+ 
+-#define PARM1 1
+-#define PARM2 2
+-#define PARM3 3
+-
+ void
+ sim_stop_reason (sd, reason, sigrc)
+      SIM_DESC sd;
+@@ -1329,7 +1326,7 @@ sim_stop_reason (sd, reason, sigrc)
+   if (cpu.asregs.exception == SIGQUIT)
+     {
+       * reason = sim_exited;
+-      * sigrc = cpu.asregs.regs[PARM1];
++      * sigrc = cpu.asregs.regs[2];
+     }
+   else
+     {

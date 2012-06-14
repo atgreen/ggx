@@ -1,0 +1,318 @@
+diff -r 940bece63319 ChangeLog.ggx
+--- a/ChangeLog.ggx	Thu Mar 20 17:39:37 2008 -0700
++++ b/ChangeLog.ggx	Fri Mar 21 06:50:49 2008 -0700
+@@ -1,3 +1,7 @@ 2008-02-11  Anthony Green  <green@spinda
++2008-03-20  Anthony Green  <green@spindazzle.org>
++
++	* configure.ac: Don't build libssp target library.
++
+ 2008-02-11  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config.sub: Add gcore support.
+diff -r 940bece63319 gcc/ChangeLog.ggx
+--- a/gcc/ChangeLog.ggx	Thu Mar 20 17:39:37 2008 -0700
++++ b/gcc/ChangeLog.ggx	Fri Mar 21 06:50:49 2008 -0700
+@@ -1,3 +1,8 @@ 2008-03-19  Anthony Green  <green@spinda
++2008-03-20  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.md: (movqi, *movqi, movhi, *movhi): New patterns.
++	(jmp): Implement.
++
+ 2008-03-19  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/ggx/ggx.md (loadsi_offset, storesi_offset): New patterns.
+diff -r 940bece63319 gcc/config/ggx/ggx.md
+--- a/gcc/config/ggx/ggx.md	Thu Mar 20 17:39:37 2008 -0700
++++ b/gcc/config/ggx/ggx.md	Fri Mar 21 06:50:49 2008 -0700
+@@ -103,10 +103,34 @@
+    ld.l   %0, %1
+    lda.l  %0, %1")
+ 
++(define_expand "movqi"
++  [(set (match_operand:QI 0 "general_operand" "")
++	(match_operand:QI 1 "general_operand" ""))]
++  ""
++  "
++{
++  /* If this is a store, force the value into a register.  */
++  if (GET_CODE (operands[0]) == MEM)
++    operands[1] = force_reg (QImode, operands[1]);
++}")
++
++(define_insn "*movqi"
++  [(set (match_operand:QI 0 "general_operand" "=r,r,W,m,r,r")
++	(match_operand:QI 1 "general_operand" "r,i,r,r,W,m"))]
++  "register_operand (operands[0], QImode)
++   || register_operand (operands[1], QImode)"
++  "@
++   mov    %0, %1
++   ldi.b  %0, %1
++   st.b   %0, %1
++   sta.b  %0, %1
++   ld.b   %0, %1
++   lda.b  %0, %1")
++
+ (define_expand "movhi"
+-   [(set (match_operand:HI 0 "general_operand" "")
+- 	(match_operand:HI 1 "general_operand" ""))]
+-   ""
++  [(set (match_operand:HI 0 "general_operand" "")
++	(match_operand:HI 1 "general_operand" ""))]
++  ""
+   "
+ {
+   /* If this is a store, force the value into a register.  */
+@@ -115,11 +139,17 @@
+ }")
+ 
+ (define_insn "*movhi"
+-  [(set (match_operand:HI 0 "general_operand" "=r")
+-	(match_operand:HI 1 "general_operand" "r"))]
++  [(set (match_operand:HI 0 "general_operand" "=r,r,W,m,r,r")
++	(match_operand:HI 1 "general_operand" "r,i,r,r,W,m"))]
+   "register_operand (operands[0], HImode)
+    || register_operand (operands[1], HImode)"
+-  "mov   %0, %1")
++  "@
++   mov    %0, %1
++   ldi.s  %0, %1
++   st.s   %0, %1
++   sta.s  %0, %1
++   ld.s   %0, %1
++   lda.s  %0, %1")
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Compare instructions
+@@ -282,8 +312,7 @@
+ (define_insn "indirect_jump"
+   [(set (pc) (match_operand:SI 0 "nonimmediate_operand" "r"))]
+   ""
+-  "*
+-  abort ();")
++  "jmp    %0")
+ 
+ (define_insn "jump"
+   [(set (pc)
+diff -r 38d3d3f3713e gcc/ChangeLog.ggx
+--- a/gcc/ChangeLog.ggx	Fri Mar 21 06:50:49 2008 -0700
++++ b/gcc/ChangeLog.ggx	Sat Mar 22 06:18:17 2008 -0700
+@@ -1,3 +1,15 @@ 2008-03-20  Anthony Green  <green@spinda
++2008-03-21  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.h (AVOID_CCMODE_COPIES): Define.
++	(FIXED_REGISTERS, CALL_USED_REGISTERS, REG_CLASS_NAMES,
++	REGNO_REG_CLASS, FIRST_PSEUDO_REGISTER, REGISTER_NAMES): Update
++	for ?cc register.
++	* config/ggx/ggx.md (cmpsi, bne, beq, blt, bltu, bgt, bgtu, bge,
++	ble, bgeu, bleu): Remove patterns.
++	(cbranchsi4, *cmpsi, *b<cons:code>): New patterns.
++	(CC_REG): Define constant.
++	(div, udiv, mod, umod): New patterns.
++
+ 2008-03-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/ggx/ggx.md: (movqi, *movqi, movhi, *movhi): New patterns.
+diff -r 38d3d3f3713e gcc/config/ggx/ggx.h
+--- a/gcc/config/ggx/ggx.h	Fri Mar 21 06:50:49 2008 -0700
++++ b/gcc/config/ggx/ggx.h	Sat Mar 22 06:18:17 2008 -0700
+@@ -82,15 +82,16 @@
+ #define REGISTER_NAMES {	\
+   "$fp", "$sp", "$r0", "$r1",   \
+   "$r2", "$r3", "$r4", "$r5",   \
+-  "?fp", "?ap", "$pc" }
++  "?fp", "?ap", "$pc", "?cc" }
+ 
+-#define FIRST_PSEUDO_REGISTER 11
++#define FIRST_PSEUDO_REGISTER 12
+ 
+ enum reg_class
+ {
+   NO_REGS,
+   GENERAL_REGS,
+   SPECIAL_REGS,
++  CC_REG,
+   ALL_REGS,
+   LIM_REG_CLASSES
+ };
+@@ -102,7 +103,8 @@ enum reg_class
+ { { 0x00000000 }, /* Empty */			   \
+   { (1<<10)-1 },  /* $fp, $sp, $r0 to $r5, ?fp */  \
+   { (1<<10) },    /* $pc */	                   \
+-  { (1<<11)-1 }   /* All registers */              \
++  { (1<<11) },    /* ?cc */                        \
++  { (1<<12)-1 }   /* All registers */              \
+ }
+ 
+ #define N_REG_CLASSES LIM_REG_CLASSES
+@@ -111,15 +113,19 @@ enum reg_class
+     "NO_REGS", \
+     "GENERAL_REGS", \
+     "SPECIAL_REGS", \
++    "CC_REG", \
+     "ALL_REGS" }
+ 
+ #define FIXED_REGISTERS     { 1, 1, 0, 0, \
+ 			      0, 0, 0, 0, \
+-                              1, 1, 1 }
++                              1, 1, 1, 1 }
+ 
+ #define CALL_USED_REGISTERS { 1, 1, 1, 1, \
+ 			      0, 0, 0, 1, \
+-                              1, 1, 1 }
++                              1, 1, 1, 1 }
++
++/* We can't copy to or from our CC register. */
++#define AVOID_CCMODE_COPIES 1
+ 
+ /* A C expression that is nonzero if it is permissible to store a
+    value of mode MODE in hard register number REGNO (or in several
+@@ -129,7 +135,8 @@ enum reg_class
+ 
+ /* A C expression whose value is a register class containing hard
+    register REGNO.  */
+-#define REGNO_REG_CLASS(R) ((R < 10) ? GENERAL_REGS : SPECIAL_REGS)
++#define REGNO_REG_CLASS(R) ((R < 10) ? GENERAL_REGS : \
++                            (R == 11? CC_REG : SPECIAL_REGS))
+ 
+ /* A C expression for the number of consecutive hard registers,
+    starting at register number REGNO, required to hold a value of mode
+diff -r 38d3d3f3713e gcc/config/ggx/ggx.md
+--- a/gcc/config/ggx/ggx.md	Fri Mar 21 06:50:49 2008 -0700
++++ b/gcc/config/ggx/ggx.md	Sat Mar 22 06:18:17 2008 -0700
+@@ -155,108 +155,47 @@
+ ;; Compare instructions
+ ;; -------------------------------------------------------------------------
+ 
+-(define_insn "cmpsi"
+-  [(set (cc0)
++(define_constants
++  [(CC_REG 11)])
++
++(define_expand "cbranchsi4"
++  [(set (reg:CC CC_REG)
++        (compare:CC
++         (match_operand:SI 1 "register_operand" "")
++         (match_operand:SI 2 "register_operand" "")))
++	 (set (pc)
++          (if_then_else (match_operator:CC 0 "comparison_operator"
++	                     [(reg:CC CC_REG) (const_int 0)])
++			(label_ref (match_operand 3 "" ""))
++			(pc)))]
++  ""
++  "")
++
++(define_insn "*cmpsi"
++  [(set (reg:CC CC_REG)
+ 	(compare
+ 	 (match_operand:SI 0 "register_operand" "r")
+ 	 (match_operand:SI 1 "register_operand"	"r")))]
+   ""
+-  "@
+-   cmp    %1, %0")
++  "cmp    %0, %1")
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Branch instructions
+ ;; -------------------------------------------------------------------------
+ 
+-(define_insn "bne"
++(define_code_iterator cond [ne eq lt ltu gt gtu ge le geu leu])
++(define_code_attr CC [(ne "ne ") (eq "eq ") (lt "lt ") (ltu "ltu") 
++		      (gt "gt ") (gtu "gtu") (ge "ge ") (le "le ") 
++		      (geu "geu") (leu "leu") ])
++
++(define_insn "*b<cond:code>"
+   [(set (pc)
+-	(if_then_else (ne (cc0)
+-			  (const_int 0))
++	(if_then_else (cond (reg:CC CC_REG)
++			    (const_int 0))
+ 		      (label_ref (match_operand 0 "" ""))
+ 		      (pc)))]
+   ""
+-  "bne    %l0")
+-
+-(define_insn "beq"
+-  [(set (pc)
+-	(if_then_else (eq (cc0)
+-			  (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "beq    %l0")
+-
+-(define_insn "blt"
+-  [(set (pc)
+-	(if_then_else (lt (cc0)
+-			  (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "blt    %l0")
+-
+-(define_insn "bltu"
+-  [(set (pc)
+-	(if_then_else (ltu (cc0)
+-			   (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "bltu   %l0")
+-
+-(define_insn "bgt"
+-  [(set (pc)
+-	(if_then_else (gt (cc0)
+-			  (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "bgt    %l0")
+-
+-(define_insn "bgtu"
+-  [(set (pc)
+-	(if_then_else (gtu (cc0)
+-			   (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "bgtu   %l0")
+-
+-(define_insn "bge"
+-  [(set (pc)
+-	(if_then_else (ge (cc0)
+-			  (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "bge    %l0")
+-
+-(define_insn "ble"
+-  [(set (pc)
+-	(if_then_else (le (cc0)
+-			  (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "ble    %l0")
+-
+-(define_insn "bgeu"
+-  [(set (pc)
+-	(if_then_else (geu (cc0)
+-			   (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "bgeu   %l0")
+-
+-(define_insn "bleu"
+-  [(set (pc)
+-	(if_then_else (leu (cc0)
+-			   (const_int 0))
+-		      (label_ref (match_operand 0 "" ""))
+-		      (pc)))]
+-  ""
+-  "bleu   %l0")
++  "b<CC>   %l0")
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Call and Jump instructions

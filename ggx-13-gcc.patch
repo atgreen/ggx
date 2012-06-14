@@ -1,0 +1,640 @@
+diff -r b34f11f78474 gcc/ChangeLog.ggx
+--- a/gcc/ChangeLog.ggx	Mon Mar 17 03:36:38 2008 -0700
++++ b/gcc/ChangeLog.ggx	Wed Mar 19 07:23:35 2008 -0700
+@@ -1,3 +1,15 @@ 2008-03-16  Anthony Green  <green@spinda
++2008-03-19  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.md: Add push, pop and addsi patterns.
++
++2008-03-18  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.md: Add call, prologue and epilogue patterns.
++
++2008-03-17  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.c (ggx_print_operand_address): New function.
++
+ 2008-03-16  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/ggx/ggx.h (FILE_ASM_OP, TEXT_SECTION_ASM_OP,
+diff -r b34f11f78474 gcc/config/ggx/ggx.c
+--- a/gcc/config/ggx/ggx.c	Mon Mar 17 03:36:38 2008 -0700
++++ b/gcc/config/ggx/ggx.c	Wed Mar 19 07:23:35 2008 -0700
+@@ -47,11 +47,19 @@
+ #include "tm_p.h"
+ #include "langhooks.h"
+ #include "tree-gimple.h"
++#include "df.h"
++
++/* Number of bytes saved on the stack for local variables. */
++static int local_vars_size;
++
++/* The sum of 2 sizes: locals vars and padding byte for saving the registers.
++ * Used in expand_prologue () and expand_epilogue ().  */
++static int size_for_adjusting_sp;
+ 
+ #define LOSE_AND_RETURN(msgid, x)		\
+   do						\
+     {						\
+-      gcore_operand_lossage (msgid, x);		\
++      ggx_operand_lossage (msgid, x);		\
+       return;					\
+     } while (0)
+ 
+@@ -104,16 +112,33 @@ ggx_function_value (tree valtype, tree f
+    categorization of the error.  */
+ 
+ static void
+-gcore_operand_lossage (const char *msgid, rtx op)
++ggx_operand_lossage (const char *msgid, rtx op)
+ {
+   debug_rtx (op);
+   output_operand_lossage ("%s", msgid);
+ }
+ 
++/* The PRINT_OPERAND_ADDRESS worker.  */
++
++void
++ggx_print_operand_address (FILE *file, rtx x)
++{
++  switch (GET_CODE (x))
++    {
++    case REG:
++      fprintf (file, "(%s)", reg_names[REGNO (x)]);
++      break;
++      
++    default:
++      output_addr_const (file, x);
++      break;
++    }
++}
++
+ /* The PRINT_OPERAND worker.  */
+ 
+ void
+-gcore_print_operand (FILE *file, rtx x, int code)
++ggx_print_operand (FILE *file, rtx x, int code)
+ {
+   rtx operand = x;
+ 
+@@ -158,3 +183,168 @@ gcore_print_operand (FILE *file, rtx x, 
+       LOSE_AND_RETURN ("unexpected operand", x);
+     }
+ }
++
++
++static int ggx_callee_saved_reg_size;
++
++int
++compute_frame_size (int size, long * p_reg_saved)
++{
++  int s = 0, regno;
++
++  /* Save callee-saved registers.  */
++  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
++    if (df_regs_ever_live_p(regno) && (! call_used_regs[regno]))
++      s += 4;
++
++  return (size
++	  + s
++	  + current_function_outgoing_args_size);
++}
++
++/* Compute the size of the local area and the size to be adjusted by the
++ * prologue and epilogue. */
++
++static void
++ggx_compute_frame (void)
++{
++  /* For aligning the local variables. */
++  int stack_alignment = STACK_BOUNDARY / BITS_PER_UNIT;
++  int padding_locals;
++  int regno;
++
++  /* Padding needed for each element of the frame.  */
++  local_vars_size = get_frame_size ();
++
++  /* Align to the stack alignment. */
++  padding_locals = local_vars_size % stack_alignment;
++  if (padding_locals)
++    padding_locals = stack_alignment - padding_locals;
++
++  local_vars_size += padding_locals;
++
++  ggx_callee_saved_reg_size = 0;
++
++  /* Save callee-saved registers.  */
++  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
++    if (df_regs_ever_live_p(regno) && (! call_used_regs[regno]))
++      ggx_callee_saved_reg_size += 4;
++
++  size_for_adjusting_sp = 
++    local_vars_size 
++    + (ACCUMULATE_OUTGOING_ARGS ? current_function_outgoing_args_size : 0);
++}
++
++void
++ggx_expand_prologue ()
++{
++  int regno;
++  rtx insn;
++
++  ggx_compute_frame ();
++
++#if 0
++  ggx_debug_stack();
++#endif
++
++  /* Save callee-saved registers.  */
++  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
++    {
++      if (df_regs_ever_live_p(regno) && (! call_used_regs[regno]))
++	{
++	  insn = emit_insn (gen_movsi_push (gen_rtx_REG (Pmode, regno)));
++	  RTX_FRAME_RELATED_P (insn) = 1;
++	}
++    }
++
++  if (size_for_adjusting_sp > 0)
++    {
++      insn = emit_insn (gen_movsi (gen_rtx_REG (Pmode, 7), GEN_INT (-size_for_adjusting_sp)));
++      RTX_FRAME_RELATED_P (insn) = 1;
++      insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, gen_rtx_REG (Pmode, 7)));
++      RTX_FRAME_RELATED_P (insn) = 1;
++    }
++}
++
++void
++ggx_expand_epilogue ()
++{
++  int regno;
++  rtx insn;
++
++  if (ggx_callee_saved_reg_size != 0)
++    {
++      insn = emit_insn (gen_movsi (gen_rtx_REG (Pmode, 7), GEN_INT (-ggx_callee_saved_reg_size)));
++      RTX_FRAME_RELATED_P (insn) = 1;
++      insn = emit_insn (gen_addsi3 (stack_pointer_rtx, hard_frame_pointer_rtx, gen_rtx_REG (Pmode, 7)));
++      RTX_FRAME_RELATED_P (insn) = 1;
++
++      for (regno = FIRST_PSEUDO_REGISTER; regno > 0; --regno)
++	if (df_regs_ever_live_p(regno) && (! call_used_regs[regno]))
++	  {
++	    insn = emit_insn (gen_movsi_pop (gen_rtx_REG (Pmode, regno)));
++	    RTX_FRAME_RELATED_P (insn) = 1;
++	  }
++    }
++
++  insn = emit_jump_insn (gen_returner ());
++  RTX_FRAME_RELATED_P (insn) = 1;
++}
++
++
++/* Stack frame setup:
++ * Low
++ *     SP-> |-----------------------------------|
++ *	    |         Argument area		|
++ *	    |-----------------------------------|
++ *	    |	 Register save area		|
++ *	    |-----------------------------------|
++ *	    |	Local variable save area	|
++ *     FP-> |-----------------------------------|
++ *	    |	    Old FP			|
++ *	    |-----------------------------------|
++ *	    | Return address(LR) storage area   |
++ *	    |-----------------------------------|
++ *	    |     Padding for alignment         |
++ *	    |-----------------------------------|
++ *	    |     Register argument area	|
++ * OLD SP-> |-----------------------------------|
++ *          |       Parameter area		|
++ *          |-----------------------------------|
++ * High
++ */
++
++/* Implements the macro INITIAL_ELIMINATION_OFFSET, return the OFFSET. */
++
++int
++ggx_initial_elimination_offset (int from, int to)
++{
++  int ret;
++  
++  /* Compute this since we need to use local_vars_size.  */
++  ggx_compute_frame ();
++
++  if ((from) == FRAME_POINTER_REGNUM && (to) == STACK_POINTER_REGNUM)
++    ret = 0x100;
++  else if ((from) == ARG_POINTER_REGNUM && (to) == FRAME_POINTER_REGNUM)
++    ret = 0x600;
++  else if ((from) == ARG_POINTER_REGNUM && (to) == STACK_POINTER_REGNUM)
++    ret = 0x1000;
++  else if ((from) == FRAME_POINTER_REGNUM && (to) == HARD_FRAME_POINTER_REGNUM)
++    ret = -ggx_callee_saved_reg_size;
++  else if ((from) == ARG_POINTER_REGNUM && (to) == HARD_FRAME_POINTER_REGNUM)
++    ret = 0x00;
++  else
++    {
++#if 0
++      printf ("from = %d\nto = %d\n", from, to);
++#endif
++      abort ();
++    }
++#if 0
++  fprintf (stderr, "Eliminate %s to %s by adding %d\n",
++	   reg_names [from], reg_names[to], ret);
++#endif
++
++  return ret;
++}
+diff -r b34f11f78474 gcc/config/ggx/ggx.h
+--- a/gcc/config/ggx/ggx.h	Mon Mar 17 03:36:38 2008 -0700
++++ b/gcc/config/ggx/ggx.h	Wed Mar 19 07:23:35 2008 -0700
+@@ -21,6 +21,33 @@
+ 
+ #ifndef GCC_GGX_H
+ #define GCC_GGX_H
++
++/* Another C string constant used much like `LINK_SPEC'.  The difference
++   between the two is that `STARTFILE_SPEC' is used at the very beginning of
++   the command given to the linker.
++
++   If this macro is not defined, a default is provided that loads the standard
++   C startup file from the usual place.  See `gcc.c'.
++
++   Defined in svr4.h.  */
++#undef  STARTFILE_SPEC
++#define STARTFILE_SPEC "crt0%O%s"
++
++/* Provide an ENDFILE_SPEC appropriate for svr4.  Here we tack on our own
++   magical crtend.o file (see crtstuff.c) which provides part of the
++   support for getting C++ file-scope static object constructed before
++   entering `main', followed by the normal svr3/svr4 "finalizer" file,
++   which is either `gcrtn.o' or `crtn.o'.  */
++
++#undef  ENDFILE_SPEC
++#define ENDFILE_SPEC ""
++
++/* Provide a LIB_SPEC appropriate for svr4.  Here we tack on the default
++   standard C library (unless we are building a shared library) and
++   the simulator BSP code.  */
++
++#undef LIB_SPEC
++#define LIB_SPEC "%{!shared:%{!symbolic:-lc -lsim}}"
+ 
+ /* Layout of Source Language Data Types */
+ 
+@@ -55,9 +82,9 @@
+ #define REGISTER_NAMES {	\
+   "$fp", "$sp", "$r0", "$r1",   \
+   "$r2", "$r3", "$r4", "$r5",   \
+-  "$pc" }
+-
+-#define FIRST_PSEUDO_REGISTER 9
++  "?fp", "?ap", "$pc" }
++
++#define FIRST_PSEUDO_REGISTER 11
+ 
+ enum reg_class
+ {
+@@ -80,10 +107,10 @@ enum reg_class
+ #define EXTRA_ADDRESS_CONSTRAINT(C,STR) 0
+ 
+ #define REG_CLASS_CONTENTS \
+-{ { 0x00000000 }, /* Empty */			\
+-  { (1<<9)-1 },   /* $fp, $sp, $r0 to $r5 */ \
+-  { (1<<8) },     /* $pc */	\
+-  { (1<<10)-1 }   /* All registers */ \
++{ { 0x00000000 }, /* Empty */			   \
++  { (1<<10)-1 },  /* $fp, $sp, $r0 to $r5, ?fp */  \
++  { (1<<10) },    /* $pc */	                   \
++  { (1<<11)-1 }   /* All registers */              \
+ }
+ 
+ #define N_REG_CLASSES LIM_REG_CLASSES
+@@ -96,11 +123,11 @@ enum reg_class
+ 
+ #define FIXED_REGISTERS     { 1, 1, 0, 0, \
+ 			      0, 0, 0, 0, \
+-                              1 }
+-
+-#define CALL_USED_REGISTERS { 1, 1, 1, 0, \
++                              1, 1, 1 }
++
++#define CALL_USED_REGISTERS { 1, 1, 1, 1, \
+ 			      0, 0, 0, 1, \
+-                              1 }
++                              1, 1, 1 }
+ 
+ /* A C expression that is nonzero if it is permissible to store a
+    value of mode MODE in hard register number REGNO (or in several
+@@ -110,7 +137,7 @@ enum reg_class
+ 
+ /* A C expression whose value is a register class containing hard
+    register REGNO.  */
+-#define REGNO_REG_CLASS(R) ((R < 9) ? GENERAL_REGS : SPECIAL_REGS)
++#define REGNO_REG_CLASS(R) ((R < 10) ? GENERAL_REGS : SPECIAL_REGS)
+ 
+ /* A C expression for the number of consecutive hard registers,
+    starting at register number REGNO, required to hold a value of mode
+@@ -153,9 +180,9 @@ enum reg_class
+ 
+ /* A C compound statement to output to stdio stream STREAM the
+    assembler syntax for an instruction operand X.  */
+-#define PRINT_OPERAND(STREAM, X, CODE) gcore_print_operand (STREAM, X, CODE)
+-
+-#define PRINT_OPERAND_ADDRESS(S,X) (abort(), 0)
++#define PRINT_OPERAND(STREAM, X, CODE) ggx_print_operand (STREAM, X, CODE)
++
++#define PRINT_OPERAND_ADDRESS(STREAM ,X) ggx_print_operand_address (STREAM, X)
+ 
+ /* Output and Generation of Labels */
+ 
+@@ -168,11 +195,20 @@ enum reg_class
+ #define FUNCTION_ARG(CUM,MODE,TYPE,NAMED) \
+   (CUM < 4 ? gen_rtx_REG (MODE, CUM) : 0)
+ 
++/* A C type for declaring a variable that is used as the first
++   argument of `FUNCTION_ARG' and other related values.  */
+ #define CUMULATIVE_ARGS int
++
++/* If defined, the maximum amount of space required for outgoing arguments
++   will be computed and placed into the variable
++   `current_function_outgoing_args_size'.  No space will be pushed
++   onto the stack for each call; instead, the function prologue should
++   increase the stack frame size by this amount.  */
++#define ACCUMULATE_OUTGOING_ARGS 1
+ 
+ /* A C statement (sans semicolon) for initializing the variable CUM
+    for the state at the beginning of the argument list.  
+-   For gcore, the first arg is passed in register 2 (aka $r0).  */
++   For ggx, the first arg is passed in register 2 (aka $r0).  */
+ #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS) \
+   (CUM = 2)
+ 
+@@ -185,7 +221,7 @@ enum reg_class
+    function returns or receives a value of data type RET_TYPE, a tree
+    node node representing a data type.  */
+ #undef TARGET_FUNCTION_VALUE
+-#define TARGET_FUNCTION_VALUE gcore_function_value
++#define TARGET_FUNCTION_VALUE ggx_function_value
+ 
+ /* These macros are deprecated, but we still need them for now since
+    the version of gcc we're using doesn't fully support
+@@ -201,9 +237,28 @@ enum reg_class
+ 
+ /* STACK AND CALLING */
+ 
++/* Define this macro if pushing a word onto the stack moves the stack
++   pointer to a smaller address.  */
++#define STACK_GROWS_DOWNWARD
++
+ #define INITIAL_FRAME_POINTER_OFFSET(DEPTH) (DEPTH) = 0;
++
++/* Offset from the frame pointer to the first local variable slot to be allocated.  */
+ #define STARTING_FRAME_OFFSET 0
+-#define FIRST_PARM_OFFSET(F) 0
++
++/* Offset from the argument pointer register to the first argument's
++   address.  On some machines it may depend on the data type of the
++   function.  */
++#define FIRST_PARM_OFFSET(F) 8
++
++/* Define this macro to nonzero value if the addresses of local variable slots
++   are at negative offsets from the frame pointer.  */
++#define FRAME_GROWS_DOWNWARD 1
++
++/* Define this macro as a C expression that is nonzero for registers that are
++   used by the epilogue or the return pattern.  The stack and frame
++   pointer registers are already assumed to be used as needed.  */
++#define EPILOGUE_USES(R) (R==7)
+ 
+ /* Storage Layout */
+ 
+@@ -213,13 +268,6 @@ enum reg_class
+ 
+ /* Alignment required for a function entry point, in bits.  */
+ #define FUNCTION_BOUNDARY 16
+-
+-/* Biggest alignment that any data type can require on this machine,
+-   in bits.  */
+-#define BIGGEST_ALIGNMENT 16
+-
+-/* Instrutions will fail to execute if not strictly aligned.  */
+-#define STRICT_ALIGNMENT 1
+ 
+ /* Define this macro as a C expression which is nonzero if accessing
+    less than a word of memory (i.e. a `char' or a `short') is no
+@@ -240,6 +288,43 @@ enum reg_class
+    regardless of data type.  */
+ #define PARM_BOUNDARY 32
+ 
++/* Alignment of field after `int : 0' in a structure.  */
++#define EMPTY_FIELD_BOUNDARY  32
++
++/* No data type wants to be aligned rounder than this.  */
++#define BIGGEST_ALIGNMENT 32
++
++/* The best alignment to use in cases where we have a choice.  */
++#define FASTEST_ALIGNMENT 32
++
++/* Every structures size must be a multiple of 8 bits.  */
++#define STRUCTURE_SIZE_BOUNDARY 8
++
++/* Look at the fundamental type that is used for a bit-field and use 
++   that to impose alignment on the enclosing structure.
++   struct s {int a:8}; should have same alignment as "int", not "char".  */
++#define	PCC_BITFIELD_TYPE_MATTERS	1
++
++/* Largest integer machine mode for structures.  If undefined, the default
++   is GET_MODE_SIZE(DImode).  */
++#define MAX_FIXED_MODE_SIZE 32
++
++/* Make strings word-aligned so strcpy from constants will be faster.  */
++#define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
++  ((TREE_CODE (EXP) == STRING_CST	\
++    && (ALIGN) < FASTEST_ALIGNMENT)	\
++   ? FASTEST_ALIGNMENT : (ALIGN))
++
++/* Make arrays of chars word-aligned for the same reasons.  */
++#define DATA_ALIGNMENT(TYPE, ALIGN)		\
++  (TREE_CODE (TYPE) == ARRAY_TYPE		\
++   && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
++   && (ALIGN) < FASTEST_ALIGNMENT ? FASTEST_ALIGNMENT : (ALIGN))
++     
++/* Set this nonzero if move instructions will actually fail to work
++   when given unaligned data.  */
++#define STRICT_ALIGNMENT 1
++
+ /* Generating Code for Profiling */
+ #define FUNCTION_PROFILER(FILE,LABELNO) (abort (), 0)
+ 
+@@ -261,11 +346,36 @@ enum reg_class
+ 
+ /* The register number of the frame pointer register, which is used to
+    access automatic variables in the stack frame.  */
+-#define FRAME_POINTER_REGNUM 0
++#define FRAME_POINTER_REGNUM 8
+ 
+ /* The register number of the arg pointer register, which is used to
+    access the function's argument list.  */
+-#define ARG_POINTER_REGNUM 0
++#define ARG_POINTER_REGNUM 9
++
++#define HARD_FRAME_POINTER_REGNUM 0
++
++#define ELIMINABLE_REGS							\
++{{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM },			\
++ { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM },			\
++ { ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM },			\
++ { ARG_POINTER_REGNUM,   HARD_FRAME_POINTER_REGNUM }}			
++
++/* A C expression that returns nonzero if the compiler is allowed to
++   try to replace register number FROM-REG with register number
++   TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
++   defined, and will usually be the constant 1, since most of the
++   cases preventing register elimination are things that the compiler
++   already knows about.  */
++#define CAN_ELIMINATE(FROM, TO) 1
++
++/* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It
++   specifies the initial difference between the specified pair of
++   registers.  This macro must be defined if `ELIMINABLE_REGS' is
++   defined.  */
++#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
++  do {									\
++    (OFFSET) = ggx_initial_elimination_offset ((FROM), (TO));		\
++  } while (0)
+ 
+ /* A C expression that is nonzero if REGNO is the number of a hard
+    register in which function arguments are sometimes passed.  */
+@@ -275,7 +385,7 @@ enum reg_class
+    register in which the values of called function may come back.  */
+ #define FUNCTION_VALUE_REGNO_P(r) (r == 2)
+ 
+-/* A macro whose definition is the name of the class to which a vqalid
++/* A macro whose definition is the name of the class to which a valid
+    base register must belong.  A base register is one used in an
+    address which is the register value plus a displacement.  */
+ #define BASE_REG_CLASS GENERAL_REGS
+@@ -351,4 +461,8 @@ enum reg_class
+     builtin_define ("__ggx__=1"); \
+   }
+ 
++/* A C compound statement to set the components of cc_status
++   appropriately for an insn INSN whose body is EXPR.  */
++#define NOTICE_UPDATE_CC(EXPR, INSN) 0
++
+ #endif /* GCC_GGX_H */
+diff -r b34f11f78474 gcc/config/ggx/ggx.md
+--- a/gcc/config/ggx/ggx.md	Mon Mar 17 03:36:38 2008 -0700
++++ b/gcc/config/ggx/ggx.md	Wed Mar 19 07:23:35 2008 -0700
+@@ -2,21 +2,33 @@
+ ;; Add instructions
+ ;; -------------------------------------------------------------------------
+ 
+-; FIXME: just a place holder.
+ (define_insn "addsi3"
+   [(set (match_operand:SI 0 "register_operand" "=r,r")
+ 	  (plus:SI
+ 	   (match_operand:SI 1 "register_operand" "r,r")
+ 	   (match_operand:SI 2 "general_operand" "r,n")))]
+   ""
+-  "*
+-  abort ();")
++  "add.l  %0, %1, %2")
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Move instructions
+ ;; -------------------------------------------------------------------------
+ 
+ ;; SImode
++
++;; Push a register onto the stack
++(define_insn "movsi_push"
++  [(set:SI (mem:SI (pre_dec:SI (reg:SI 1)))
++	(match_operand:SI 0 "register_operand" "r"))]
++  ""
++  "push   $sp, %0")
++
++;; Pop a register from the stack
++(define_insn "movsi_pop"
++  [(set:SI (match_operand:SI 0 "register_operand" "=r")
++	(mem:SI (post_inc:SI (reg:SI 1))))]
++  ""
++  "pop    $sp, %0")
+ 
+ (define_expand "movsi"
+    [(set (match_operand:SI 0 "general_operand" "")
+@@ -35,8 +47,8 @@
+   "register_operand (operands[0], SImode)
+    || register_operand (operands[1], SImode)"
+   "@
+-   mov   %0, %1
+-   ldi.l %0, %1")
++   mov    %0, %1
++   ldi.l  %0, %1")
+ 
+ (define_expand "movhi"
+    [(set (match_operand:HI 0 "general_operand" "")
+@@ -72,6 +84,13 @@
+   gcc_assert (GET_CODE (operands[0]) == MEM);
+ })
+ 
++(define_insn "*call_indirect"
++  [(call (mem:QI (match_operand:SI
++		  0 "register_operand" "r"))
++	 (match_operand 1 "" ""))]
++  ""
++  "jsr    %0")
++
+ (define_insn "*call"
+   [(call (mem:QI (match_operand:SI
+ 		  0 "immediate_operand" "i"))
+@@ -87,6 +106,14 @@
+ {
+   gcc_assert (GET_CODE (operands[1]) == MEM);
+ })
++
++(define_insn "*call_value_indirect"
++  [(set (match_operand 0 "register_operand" "=r")
++	(call (mem:QI (match_operand:SI
++		       1 "register_operand" "r"))
++	      (match_operand 2 "" "")))]
++  ""
++  "jsr    %1")
+ 
+ (define_insn "*call_value"
+   [(set (match_operand 0 "register_operand" "=r")
+@@ -110,10 +137,30 @@
+   abort ();")
+ 
+ ;; -------------------------------------------------------------------------
+-;; Epilogue
++;; Prologue & Epilogue
+ ;; -------------------------------------------------------------------------
+ 
+-(define_insn "epilogue"
++(define_expand "prologue"
++  [(clobber (const_int 0))]
++  ""
++  "
++{
++  ggx_expand_prologue ();
++  DONE;
++}
++")
++
++(define_expand "epilogue"
+   [(return)]
+   ""
++  "
++{
++  ggx_expand_epilogue ();
++  DONE;
++}
++")
++
++(define_insn "returner"
++  [(return)]
++  "reload_completed"
+   "ret")

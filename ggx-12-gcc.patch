@@ -1,0 +1,303 @@
+diff -r e9723dd7969d gcc/ChangeLog.ggx
+--- a/gcc/ChangeLog.ggx	Sun Mar 16 04:42:00 2008 -0700
++++ b/gcc/ChangeLog.ggx	Mon Mar 17 03:36:38 2008 -0700
+@@ -1,3 +1,12 @@ 2008-02-11  Anthony Green  <green@spinda
++2008-03-16  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.h (FILE_ASM_OP, TEXT_SECTION_ASM_OP,
++	DATA_SECTION_ASM_OP): Define.
++
++2008-03-16  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.h (UNITS_PER_WORD): Fix definition.
++
+ 2008-02-11  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/ggx/ggx.c: New file.
+diff -r e9723dd7969d gcc/config/ggx/ggx.c
+--- a/gcc/config/ggx/ggx.c	Sun Mar 16 04:42:00 2008 -0700
++++ b/gcc/config/ggx/ggx.c	Mon Mar 17 03:36:38 2008 -0700
+@@ -48,6 +48,13 @@
+ #include "langhooks.h"
+ #include "tree-gimple.h"
+ 
++#define LOSE_AND_RETURN(msgid, x)		\
++  do						\
++    {						\
++      gcore_operand_lossage (msgid, x);		\
++      return;					\
++    } while (0)
++
+ /* Worker function for TARGET_RETURN_IN_MEMORY.  */
+ 
+ static bool
+@@ -90,3 +97,64 @@ ggx_function_value (tree valtype, tree f
+ {
+   return gen_rtx_REG (TYPE_MODE (valtype), 2);
+ }
++
++/* Emit an error message when we're in an asm, and a fatal error for
++   "normal" insns.  Formatted output isn't easily implemented, since we
++   use output_operand_lossage to output the actual message and handle the
++   categorization of the error.  */
++
++static void
++gcore_operand_lossage (const char *msgid, rtx op)
++{
++  debug_rtx (op);
++  output_operand_lossage ("%s", msgid);
++}
++
++/* The PRINT_OPERAND worker.  */
++
++void
++gcore_print_operand (FILE *file, rtx x, int code)
++{
++  rtx operand = x;
++
++  /* New code entries should just be added to the switch below.  If
++     handling is finished, just return.  If handling was just a
++     modification of the operand, the modified operand should be put in
++     "operand", and then do a break to let default handling
++     (zero-modifier) output the operand.  */
++
++  switch (code)
++    {
++    case 0:
++      /* No code, print as usual.  */
++      break;
++
++    default:
++      LOSE_AND_RETURN ("invalid operand modifier letter", x);
++    }
++
++  /* Print an operand as without a modifier letter.  */
++  switch (GET_CODE (operand))
++    {
++    case REG:
++      if (REGNO (operand) > 7)
++	internal_error ("internal error: bad register: %d", REGNO (operand));
++      fprintf (file, "%s", reg_names[REGNO (operand)]);
++      return;
++
++    case MEM:
++      output_address (XEXP (operand, 0));
++      return;
++
++    default:
++      /* No need to handle all strange variants, let output_addr_const
++	 do it for us.  */
++      if (CONSTANT_P (operand))
++	{
++	  output_addr_const (file, operand);
++	  return;
++	}
++
++      LOSE_AND_RETURN ("unexpected operand", x);
++    }
++}
+diff -r e9723dd7969d gcc/config/ggx/ggx.h
+--- a/gcc/config/ggx/ggx.h	Sun Mar 16 04:42:00 2008 -0700
++++ b/gcc/config/ggx/ggx.h	Mon Mar 17 03:36:38 2008 -0700
+@@ -77,8 +77,7 @@ enum reg_class
+   (abort(), 0)
+ #define EXTRA_MEMORY_CONSTRAINT(C,STR) \
+   (abort(), 0)
+-#define EXTRA_ADDRESS_CONSTRAINT(C,STR) \
+-  (abort(), 0)
++#define EXTRA_ADDRESS_CONSTRAINT(C,STR) 0
+ 
+ #define REG_CLASS_CONTENTS \
+ { { 0x00000000 }, /* Empty */			\
+@@ -136,16 +135,26 @@ enum reg_class
+ 
+ /* The Overall Framework of an Assembler File */
+ 
++#undef  ASM_SPEC
+ #define ASM_COMMENT_START "#"
+ #define ASM_APP_ON ""
+ #define ASM_APP_OFF ""
+ 
++#define FILE_ASM_OP     "\t.file\n"
++
++/* Switch to the text or data segment.  */
++#define TEXT_SECTION_ASM_OP  "\t.text"
++#define DATA_SECTION_ASM_OP  "\t.data"
++
+ /* Assembler Commands for Alignment */
+ 
+ #define ASM_OUTPUT_ALIGN(STREAM,POWER) \
+ 	fprintf (STREAM, "\t.p2align\t%d\n", POWER);
+ 
+-#define PRINT_OPERAND(S,X,C) (abort(), 0)
++/* A C compound statement to output to stdio stream STREAM the
++   assembler syntax for an instruction operand X.  */
++#define PRINT_OPERAND(STREAM, X, CODE) gcore_print_operand (STREAM, X, CODE)
++
+ #define PRINT_OPERAND_ADDRESS(S,X) (abort(), 0)
+ 
+ /* Output and Generation of Labels */
+@@ -171,6 +180,12 @@ enum reg_class
+   (CUM = (CUM < 4 ? CUM + 1 : CUM ))
+ 
+ /* How Scalar Function Values Are Returned */
++
++/* Define this to return an RTX representing the place where a
++   function returns or receives a value of data type RET_TYPE, a tree
++   node node representing a data type.  */
++#undef TARGET_FUNCTION_VALUE
++#define TARGET_FUNCTION_VALUE gcore_function_value
+ 
+ /* These macros are deprecated, but we still need them for now since
+    the version of gcc we're using doesn't fully support
+@@ -213,7 +228,7 @@ enum reg_class
+ 
+ /* Number of storage units in a word; normally the size of a
+    general-purpose register, a power of two from 1 or 8.  */
+-#define UNITS_PER_WORD 2
++#define UNITS_PER_WORD 4
+ 
+ /* Define this macro to the minimum alignment enforced by hardware
+    for the stack pointer on this machine.  The definition is a C
+@@ -263,7 +278,7 @@ enum reg_class
+ /* A macro whose definition is the name of the class to which a vqalid
+    base register must belong.  A base register is one used in an
+    address which is the register value plus a displacement.  */
+-#define BASE_REG_CLASS NO_REGS
++#define BASE_REG_CLASS GENERAL_REGS
+ 
+ #define INDEX_REG_CLASS NO_REGS
+ 
+@@ -292,7 +307,9 @@ enum reg_class
+ 
+ #define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, STACK_SIZE) 0
+ 
+-#define LEGITIMATE_CONSTANT_P(X) (abort(), 0)
++/* A C expression that is nonzero if X is a legitimate constant for
++   an immediate operand on the target machine.  */
++#define LEGITIMATE_CONSTANT_P(X) 1
+ 
+ #define FRAME_POINTER_REQUIRED 1
+ 
+diff -r e9723dd7969d gcc/config/ggx/ggx.md
+--- a/gcc/config/ggx/ggx.md	Sun Mar 16 04:42:00 2008 -0700
++++ b/gcc/config/ggx/ggx.md	Mon Mar 17 03:36:38 2008 -0700
+@@ -1,19 +1,100 @@
++;; -------------------------------------------------------------------------
++;; Add instructions
++;; -------------------------------------------------------------------------
++
++; FIXME: just a place holder.
++(define_insn "addsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r,r")
++	  (plus:SI
++	   (match_operand:SI 1 "register_operand" "r,r")
++	   (match_operand:SI 2 "general_operand" "r,n")))]
++  ""
++  "*
++  abort ();")
++
+ ;; -------------------------------------------------------------------------
+ ;; Move instructions
+ ;; -------------------------------------------------------------------------
+ 
+ ;; SImode
+ 
+-(define_insn "movsi"
+-  [(set (match_operand:SI 0 "general_operand" "")
+-	(match_operand:SI 1 "general_operand" ""))]
+-  ""
+-  "*
+-  abort ();")
++(define_expand "movsi"
++   [(set (match_operand:SI 0 "general_operand" "")
++ 	(match_operand:SI 1 "general_operand" ""))]
++   ""
++  "
++{
++  /* If this is a store, force the value into a register.  */
++  if (GET_CODE (operands[0]) == MEM)
++    operands[1] = force_reg (SImode, operands[1]);
++}")
++
++(define_insn "*movsi"
++  [(set (match_operand:SI 0 "general_operand" "=r,r")
++	(match_operand:SI 1 "general_operand" "r,i"))]
++  "register_operand (operands[0], SImode)
++   || register_operand (operands[1], SImode)"
++  "@
++   mov   %0, %1
++   ldi.l %0, %1")
++
++(define_expand "movhi"
++   [(set (match_operand:HI 0 "general_operand" "")
++ 	(match_operand:HI 1 "general_operand" ""))]
++   ""
++  "
++{
++  /* If this is a store, force the value into a register.  */
++  if (GET_CODE (operands[0]) == MEM)
++    operands[1] = force_reg (HImode, operands[1]);
++}")
++
++(define_insn "*movhi"
++  [(set (match_operand:HI 0 "general_operand" "=r")
++	(match_operand:HI 1 "general_operand" "r"))]
++  "register_operand (operands[0], HImode)
++   || register_operand (operands[1], HImode)"
++  "mov   %0, %1")
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Jump instructions
+ ;; -------------------------------------------------------------------------
++
++;; -------------------------------------------------------------------------
++;; Call and Jump instructions
++;; -------------------------------------------------------------------------
++
++(define_expand "call"
++  [(call (match_operand:QI 0 "memory_operand" "")
++		(match_operand 1 "general_operand" ""))]
++  ""
++{
++  gcc_assert (GET_CODE (operands[0]) == MEM);
++})
++
++(define_insn "*call"
++  [(call (mem:QI (match_operand:SI
++		  0 "immediate_operand" "i"))
++	 (match_operand 1 "" ""))]
++  ""
++  "jsra   %0")
++
++(define_expand "call_value"
++  [(set (match_operand 0 "" "")
++		(call (match_operand:QI 1 "memory_operand" "")
++		 (match_operand 2 "" "")))]
++  ""
++{
++  gcc_assert (GET_CODE (operands[1]) == MEM);
++})
++
++(define_insn "*call_value"
++  [(set (match_operand 0 "register_operand" "=r")
++	(call (mem:QI (match_operand:SI
++		       1 "immediate_operand" "i"))
++	      (match_operand 2 "" "")))]
++  ""
++  "jsra   %1")
+ 
+ (define_insn "indirect_jump"
+   [(set (pc) (match_operand:SI 0 "nonimmediate_operand" "r"))]
+@@ -28,4 +109,11 @@
+   "*
+   abort ();")
+ 
++;; -------------------------------------------------------------------------
++;; Epilogue
++;; -------------------------------------------------------------------------
+ 
++(define_insn "epilogue"
++  [(return)]
++  ""
++  "ret")

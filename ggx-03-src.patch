@@ -1,0 +1,294 @@
+diff -r 6b48b67e9085 ChangeLog.ggx
+--- a/ChangeLog.ggx	Mon Mar 10 08:29:28 2008 -0700
++++ b/ChangeLog.ggx	Tue Mar 11 11:31:58 2008 -0700
+@@ -1,3 +1,8 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* configure.ac: Build opcodes.
++	* configure: Rebuilt.
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* configure.ac: Build bfd.
+diff -r 6b48b67e9085 configure
+--- a/configure	Mon Mar 10 08:29:28 2008 -0700
++++ b/configure	Tue Mar 11 11:31:58 2008 -0700
+@@ -2327,7 +2327,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs binutils opcodes gas ld gprof"
++    noconfigdirs="$noconfigdirs binutils gas ld gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r 6b48b67e9085 configure.ac
+--- a/configure.ac	Mon Mar 10 08:29:28 2008 -0700
++++ b/configure.ac	Tue Mar 11 11:31:58 2008 -0700
+@@ -605,7 +605,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs binutils opcodes gas ld gprof"
++    noconfigdirs="$noconfigdirs binutils gas ld gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r 6b48b67e9085 include/dis-asm.h
+--- a/include/dis-asm.h	Mon Mar 10 08:29:28 2008 -0700
++++ b/include/dis-asm.h	Tue Mar 11 11:31:58 2008 -0700
+@@ -224,6 +224,7 @@ extern int print_insn_dlx 		(bfd_vma, di
+ extern int print_insn_dlx 		(bfd_vma, disassemble_info *);
+ extern int print_insn_fr30		(bfd_vma, disassemble_info *);
+ extern int print_insn_frv		(bfd_vma, disassemble_info *);
++extern int print_insn_ggx		(bfd_vma, disassemble_info *);
+ extern int print_insn_h8300		(bfd_vma, disassemble_info *);
+ extern int print_insn_h8300h		(bfd_vma, disassemble_info *);
+ extern int print_insn_h8300s		(bfd_vma, disassemble_info *);
+diff -r 6b48b67e9085 include/opcode/ChangeLog.ggx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/include/opcode/ChangeLog.ggx	Tue Mar 11 11:31:58 2008 -0700
+@@ -0,0 +1,3 @@
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* ggx.h: Created.
+diff -r 6b48b67e9085 include/opcode/ggx.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/include/opcode/ggx.h	Tue Mar 11 11:31:58 2008 -0700
+@@ -0,0 +1,24 @@
++/* Definitions for decoding the ggx opcode table.
++   Copyright 2008 Free Software Foundation, Inc.
++   Contributed by Anthony Green (green@spindazzle.org).
++
++This program is free software; you can redistribute it and/or modify
++it under the terms of the GNU General Public License as published by
++the Free Software Foundation; either version 2 of the License, or
++(at your option) any later version.
++
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with this program; if not, write to the Free Software
++Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA
++02110-1301, USA.  */
++
++typedef struct ggx_opc_info_t
++{
++  short opcode;
++  const char *name;
++} ggx_opc_info_t;
+diff -r 6b48b67e9085 opcodes/ChangeLog.ggx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/opcodes/ChangeLog.ggx	Tue Mar 11 11:31:58 2008 -0700
+@@ -0,0 +1,8 @@
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* ggx-opc.c, ggx-dis.c: Created.
++	* Makefile.am: Build the ggx source files.
++	* configure.in: Add ggx support.
++	* Makefile.in, configure: Rebuilt.
++	* disassemble.c (disassembler): Add ggx support.
++	(ARCH_ggx): Define.
+diff -r 6b48b67e9085 opcodes/Makefile.am
+--- a/opcodes/Makefile.am	Mon Mar 10 08:29:28 2008 -0700
++++ b/opcodes/Makefile.am	Tue Mar 11 11:31:58 2008 -0700
+@@ -93,6 +93,8 @@ CFILES = \
+ 	frv-dis.c \
+ 	frv-ibld.c \
+ 	frv-opc.c \
++	ggx-dis.c \
++	ggx-opc.c \
+ 	h8300-dis.c \
+ 	h8500-dis.c \
+ 	hppa-dis.c \
+@@ -244,6 +246,8 @@ ALL_MACHINES = \
+ 	frv-dis.lo \
+ 	frv-ibld.lo \
+ 	frv-opc.lo \
++	ggx-dis.lo \
++	ggx-opc.lo \
+ 	h8300-dis.lo \
+ 	h8500-dis.lo \
+ 	hppa-dis.lo \
+@@ -790,6 +794,11 @@ frv-opc.lo: frv-opc.c sysdep.h config.h 
+   $(INCDIR)/symcat.h $(INCDIR)/opcode/cgen-bitset.h frv-opc.h \
+   $(INCDIR)/libiberty.h $(INCDIR)/ansidecl.h $(INCDIR)/elf/frv.h \
+   $(INCDIR)/elf/reloc-macros.h
++ggx-dis.lo: ggx-dis.c sysdep.h config.h $(INCDIR)/ansidecl.h \
++  $(INCDIR)/opcode/ggx.h $(INCDIR)/dis-asm.h $(BFD_H) \
++  $(INCDIR)/ansidecl.h $(INCDIR)/symcat.h
++ggx-opc.lo: ggx-opc.c sysdep.h config.h $(INCDIR)/ansidecl.h \
++  $(INCDIR)/opcode/ggx.h
+ h8300-dis.lo: h8300-dis.c sysdep.h config.h $(INCDIR)/ansidecl.h \
+   $(INCDIR)/opcode/h8300.h $(INCDIR)/dis-asm.h $(BFD_H) \
+   $(INCDIR)/ansidecl.h $(INCDIR)/symcat.h opintl.h $(INCDIR)/libiberty.h \
+diff -r 6b48b67e9085 opcodes/Makefile.in
+--- a/opcodes/Makefile.in	Mon Mar 10 08:29:28 2008 -0700
++++ b/opcodes/Makefile.in	Tue Mar 11 11:31:58 2008 -0700
+@@ -322,6 +322,8 @@ CFILES = \
+ 	frv-dis.c \
+ 	frv-ibld.c \
+ 	frv-opc.c \
++	ggx-dis.c \
++	ggx-opc.c \
+ 	h8300-dis.c \
+ 	h8500-dis.c \
+ 	hppa-dis.c \
+@@ -473,6 +475,8 @@ ALL_MACHINES = \
+ 	frv-dis.lo \
+ 	frv-ibld.lo \
+ 	frv-opc.lo \
++	ggx-dis.lo \
++	ggx-opc.lo \
+ 	h8300-dis.lo \
+ 	h8500-dis.lo \
+ 	hppa-dis.lo \
+@@ -1342,6 +1346,11 @@ frv-opc.lo: frv-opc.c sysdep.h config.h 
+   $(INCDIR)/symcat.h $(INCDIR)/opcode/cgen-bitset.h frv-opc.h \
+   $(INCDIR)/libiberty.h $(INCDIR)/ansidecl.h $(INCDIR)/elf/frv.h \
+   $(INCDIR)/elf/reloc-macros.h
++ggx-dis.lo: ggx-dis.c sysdep.h config.h $(INCDIR)/ansidecl.h \
++  $(INCDIR)/opcode/ggx.h $(INCDIR)/dis-asm.h $(BFD_H) \
++  $(INCDIR)/ansidecl.h $(INCDIR)/symcat.h
++ggx-opc.lo: ggx-opc.c sysdep.h config.h $(INCDIR)/ansidecl.h \
++  $(INCDIR)/opcode/ggx.h
+ h8300-dis.lo: h8300-dis.c sysdep.h config.h $(INCDIR)/ansidecl.h \
+   $(INCDIR)/opcode/h8300.h $(INCDIR)/dis-asm.h $(BFD_H) \
+   $(INCDIR)/ansidecl.h $(INCDIR)/symcat.h opintl.h $(INCDIR)/libiberty.h \
+diff -r 6b48b67e9085 opcodes/configure
+--- a/opcodes/configure	Mon Mar 10 08:29:28 2008 -0700
++++ b/opcodes/configure	Tue Mar 11 11:31:58 2008 -0700
+@@ -11531,6 +11531,7 @@ if test x${all_targets} = xfalse ; then
+ 	bfd_dlx_arch)		ta="$ta dlx-dis.lo" ;;
+ 	bfd_fr30_arch)          ta="$ta fr30-asm.lo fr30-desc.lo fr30-dis.lo fr30-ibld.lo fr30-opc.lo" using_cgen=yes ;;
+ 	bfd_frv_arch)           ta="$ta frv-asm.lo frv-desc.lo frv-dis.lo frv-ibld.lo frv-opc.lo" using_cgen=yes ;;
++	bfd_ggx_arch)		ta="$ta ggx-dis.lo ggx-opc.lo" ;;
+ 	bfd_h8300_arch)		ta="$ta h8300-dis.lo" ;;
+ 	bfd_h8500_arch)		ta="$ta h8500-dis.lo" ;;
+ 	bfd_hppa_arch)		ta="$ta hppa-dis.lo" ;;
+diff -r 6b48b67e9085 opcodes/configure.in
+--- a/opcodes/configure.in	Mon Mar 10 08:29:28 2008 -0700
++++ b/opcodes/configure.in	Tue Mar 11 11:31:58 2008 -0700
+@@ -185,6 +185,7 @@ if test x${all_targets} = xfalse ; then
+ 	bfd_dlx_arch)		ta="$ta dlx-dis.lo" ;;
+ 	bfd_fr30_arch)          ta="$ta fr30-asm.lo fr30-desc.lo fr30-dis.lo fr30-ibld.lo fr30-opc.lo" using_cgen=yes ;;
+ 	bfd_frv_arch)           ta="$ta frv-asm.lo frv-desc.lo frv-dis.lo frv-ibld.lo frv-opc.lo" using_cgen=yes ;;
++	bfd_ggx_arch)		ta="$ta ggx-dis.lo ggx-opc.lo" ;;
+ 	bfd_h8300_arch)		ta="$ta h8300-dis.lo" ;;
+ 	bfd_h8500_arch)		ta="$ta h8500-dis.lo" ;;
+ 	bfd_hppa_arch)		ta="$ta hppa-dis.lo" ;;
+diff -r 6b48b67e9085 opcodes/disassemble.c
+--- a/opcodes/disassemble.c	Mon Mar 10 08:29:28 2008 -0700
++++ b/opcodes/disassemble.c	Tue Mar 11 11:31:58 2008 -0700
+@@ -36,6 +36,7 @@
+ #define ARCH_dlx
+ #define ARCH_fr30
+ #define ARCH_frv
++#define ARCH_ggx
+ #define ARCH_h8300
+ #define ARCH_h8500
+ #define ARCH_hppa
+@@ -434,6 +435,11 @@ disassembler (abfd)
+       disassemble = print_insn_frv;
+       break;
+ #endif
++#ifdef ARCH_ggx
++    case bfd_arch_ggx:
++      disassemble = print_insn_ggx;
++      break;
++#endif
+ #ifdef ARCH_iq2000
+     case bfd_arch_iq2000:
+       disassemble = print_insn_iq2000;
+diff -r 6b48b67e9085 opcodes/ggx-dis.c
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/opcodes/ggx-dis.c	Tue Mar 11 11:31:58 2008 -0700
+@@ -0,0 +1,53 @@
++/* Disassemble ggx instructions.
++   Copyright 2008
++   Free Software Foundation, Inc.
++
++   This file is part of the GNU opcodes library.
++
++   This library is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   It is distributed in the hope that it will be useful, but WITHOUT
++   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
++   License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston,
++   MA 02110-1301, USA.  */
++
++#include <stdio.h>
++#include "sysdep.h"
++#define STATIC_TABLE
++#define DEFINE_TABLE
++
++#include "opcode/ggx.h"
++#include "dis-asm.h"
++
++extern const ggx_opc_info_t ggx_opc_info[128];
++
++static fprintf_ftype fpr;
++static void *stream;
++
++int
++print_insn_ggx (bfd_vma addr, struct disassemble_info *info)
++{
++  int status;
++  stream = info->stream;
++  unsigned char opcode;
++  fpr = info->fprintf_func;
++
++  if ((status = info->read_memory_func (addr, &opcode, 1, info)))
++    goto fail;
++
++  fpr (stream, "%s", ggx_opc_info[opcode].name);
++
++  return 1;
++
++ fail:
++  info->memory_error_func (status, addr, info);
++  return -1;
++}
+diff -r 6b48b67e9085 opcodes/ggx-opc.c
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/opcodes/ggx-opc.c	Tue Mar 11 11:31:58 2008 -0700
+@@ -0,0 +1,28 @@
++/* ggx-opc.c -- Definitions for ggx opcodes.
++   Copyright 2008 Free Software Foundation, Inc.
++   Contributed by Anthony Green (green@spindazzle.org).
++
++   This file is part of the GNU opcodes library.
++
++   This library is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   It is distributed in the hope that it will be useful, but WITHOUT
++   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
++   License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this file; see the file COPYING.  If not, write to the
++   Free Software Foundation, 51 Franklin Street - Fifth Floor, Boston,
++   MA 02110-1301, USA.  */
++
++#include "sysdep.h"
++#include "opcode/ggx.h"
++
++const ggx_opc_info_t ggx_opc_info[128] =
++{
++  { 0x00, "bad" }
++};

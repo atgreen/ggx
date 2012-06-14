@@ -1,0 +1,257 @@
+diff -r f8637f8d08ee gas/ChangeLog.ggx
+--- a/gas/ChangeLog.ggx	Tue Mar 11 14:35:07 2008 -0700
++++ b/gas/ChangeLog.ggx	Wed Mar 12 07:43:30 2008 -0700
+@@ -1,3 +1,8 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* config/tc-ggx.c (md_begin): Populate the insn hash table with
++	both Form 1 and Form 2 opcode tables.
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/tc-ggx.h: New file.
+diff -r f8637f8d08ee gas/config/tc-ggx.c
+--- a/gas/config/tc-ggx.c	Tue Mar 11 14:35:07 2008 -0700
++++ b/gas/config/tc-ggx.c	Wed Mar 12 07:43:30 2008 -0700
+@@ -55,11 +55,15 @@ void
+ void
+ md_begin (void)
+ {
++  int count;
+   const ggx_opc_info_t *opcode;
+   opcode_hash_control = hash_new ();
+ 
+   /* Insert names into hash table.  */
+-  for (opcode = ggx_opc_info; opcode->name; opcode++)
++  for (count = 0, opcode = ggx_form1_opc_info; count++ < 64; opcode++)
++    hash_insert (opcode_hash_control, opcode->name, (char *) opcode);
++
++  for (count = 0, opcode = ggx_form2_opc_info; count++ < 8; opcode++)
+     hash_insert (opcode_hash_control, opcode->name, (char *) opcode);
+ 
+   bfd_set_arch_mach (stdoutput, TARGET_ARCH, 0);
+diff -r f8637f8d08ee include/opcode/ChangeLog.ggx
+--- a/include/opcode/ChangeLog.ggx	Tue Mar 11 14:35:07 2008 -0700
++++ b/include/opcode/ChangeLog.ggx	Wed Mar 12 07:43:30 2008 -0700
+@@ -1,3 +1,8 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* ggx.h (ggx_opc_info_t): Add itype element.
++	(GGX_F1_*, GGX_F2_*): Define.
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* ggx.h: Created.
+diff -r f8637f8d08ee include/opcode/ggx.h
+--- a/include/opcode/ggx.h	Tue Mar 11 14:35:07 2008 -0700
++++ b/include/opcode/ggx.h	Wed Mar 12 07:43:30 2008 -0700
+@@ -17,8 +17,34 @@ Foundation, Inc., 51 Franklin Street - F
+ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA
+ 02110-1301, USA.  */
+ 
++/*
++  Form 1 instructions come in different flavors:
++
++    Some have no arguments              (GGX_F1_NARG)
++    Some only use the A operand         (GGX_F1_A)
++    Some use A and B registers          (GGX_F1_AB)
++    Some use A, B and C registers       (GGX_F1_ABC)
++
++  Form 2 instructions also come in different flavors:
++
++    Some ignore the 12-bit immediate operand (GGX_F2_NARG)
++    Some use the 12-bit immediate operand    (GGX_F2_12V)
++*/
++
++#define GGX_F1_NARG 0x100
++#define GGX_F1_A    0x101
++#define GGX_F1_AB   0x102
++#define GGX_F1_ABC  0x103
++
++#define GGX_F2_NARG 0x200
++#define GGX_F2_12V  0x201
++
+ typedef struct ggx_opc_info_t
+ {
+   short opcode;
++  unsigned itype;
+   const char *name;
+ } ggx_opc_info_t;
++
++extern const ggx_opc_info_t ggx_form1_opc_info[64];
++extern const ggx_opc_info_t ggx_form2_opc_info[8];
+diff -r f8637f8d08ee opcodes/ggx-dis.c
+--- a/opcodes/ggx-dis.c	Tue Mar 11 14:35:07 2008 -0700
++++ b/opcodes/ggx-dis.c	Wed Mar 12 07:43:30 2008 -0700
+@@ -27,8 +27,6 @@
+ #include "opcode/ggx.h"
+ #include "dis-asm.h"
+ 
+-extern const ggx_opc_info_t ggx_opc_info[128];
+-
+ static fprintf_ftype fpr;
+ static void *stream;
+ 
+@@ -36,16 +34,43 @@ print_insn_ggx (bfd_vma addr, struct dis
+ print_insn_ggx (bfd_vma addr, struct disassemble_info *info)
+ {
+   int status;
+-  stream = info->stream;
+-  unsigned char opcode;
++ stream = info->stream;
++  const ggx_opc_info_t *opcode;
++  unsigned short iword;
+   fpr = info->fprintf_func;
+ 
+-  if ((status = info->read_memory_func (addr, &opcode, 1, info)))
++  if ((status = info->read_memory_func (addr, (unsigned char*) &iword, 2, info)))
+     goto fail;
+ 
+-  fpr (stream, "%s", ggx_opc_info[opcode].name);
++  /* Form 1 instructions have the high bit set to 0.  */
++  if ((iword & (1<<15)) == 0)
++    {
++      /* Extract the Form 1 opcode.  */
++      opcode = &ggx_form1_opc_info[iword >> 9];
++      switch (opcode->itype)
++	{
++	case GGX_F1_NARG:
++	  fpr (stream, "%s", opcode->name);
++	  break;
++	default:
++	  abort();
++	}
++    }
++  else /* this is a Form 2 instruction.  */
++    {
++      /* Extract the Form 2 opcode.  */
++      opcode = &ggx_form2_opc_info[(iword >> 12) & 7];
++      switch (opcode->itype)
++	{
++	case GGX_F2_NARG:
++	  fpr (stream, "%s", opcode->name);
++	  break;
++	default:
++	  abort();
++	}
++    }
+ 
+-  return 1;
++  return 2;
+ 
+  fail:
+   info->memory_error_func (status, addr, info);
+diff -r f8637f8d08ee opcodes/ggx-opc.c
+--- a/opcodes/ggx-opc.c	Tue Mar 11 14:35:07 2008 -0700
++++ b/opcodes/ggx-opc.c	Wed Mar 12 07:43:30 2008 -0700
+@@ -22,7 +22,106 @@
+ #include "sysdep.h"
+ #include "opcode/ggx.h"
+ 
+-const ggx_opc_info_t ggx_opc_info[128] =
+-{
+-  { 0x00, "bad" }
+-};
++/*
++  The ggx processor's 16-bit instructions come in two forms:
++
++  FORM 1 instructions start with a 0 bit...
++
++    0ooooooaaabbbccc
++    0              F
++ 
++   oooooo - form 1 opcode number
++   aaa    - operand A
++   bbb    - operand B
++   ccc    - operand C
++
++  FORM 2 instructions start with a 1 bit...
++
++    1ooovvvvvvvvvvvv
++    0              F
++  
++   ooo          - form 2 opcode number
++   vvvvvvvvvvvv - 12-bit immediate value
++
++*/
++
++const ggx_opc_info_t ggx_form1_opc_info[64] =
++  {
++    { 0x00, GGX_F1_NARG, "bad" },
++    { 0x01, GGX_F1_NARG, "bad" },
++    { 0x02, GGX_F1_NARG, "bad" },
++    { 0x03, GGX_F1_NARG, "bad" },
++    { 0x04, GGX_F1_NARG, "bad" },
++    { 0x05, GGX_F1_NARG, "bad" },
++    { 0x06, GGX_F1_NARG, "bad" },
++    { 0x07, GGX_F1_NARG, "bad" },
++    { 0x08, GGX_F1_NARG, "bad" },
++    { 0x09, GGX_F1_NARG, "bad" },
++    { 0x0a, GGX_F1_NARG, "bad" },
++    { 0x0b, GGX_F1_NARG, "bad" },
++    { 0x0c, GGX_F1_NARG, "bad" },
++    { 0x0d, GGX_F1_NARG, "bad" },
++    { 0x0e, GGX_F1_NARG, "bad" },
++    { 0x0f, GGX_F1_NARG, "bad" },
++    { 0x10, GGX_F1_NARG, "bad" },
++    { 0x11, GGX_F1_NARG, "bad" },
++    { 0x12, GGX_F1_NARG, "bad" },
++    { 0x13, GGX_F1_NARG, "bad" },
++    { 0x14, GGX_F1_NARG, "bad" },
++    { 0x15, GGX_F1_NARG, "bad" },
++    { 0x16, GGX_F1_NARG, "bad" },
++    { 0x17, GGX_F1_NARG, "bad" },
++    { 0x18, GGX_F1_NARG, "bad" },
++    { 0x19, GGX_F1_NARG, "bad" },
++    { 0x1a, GGX_F1_NARG, "bad" },
++    { 0x1b, GGX_F1_NARG, "bad" },
++    { 0x1c, GGX_F1_NARG, "bad" },
++    { 0x1d, GGX_F1_NARG, "bad" },
++    { 0x1e, GGX_F1_NARG, "bad" },
++    { 0x1f, GGX_F1_NARG, "bad" },
++    { 0x20, GGX_F1_NARG, "bad" },
++    { 0x21, GGX_F1_NARG, "bad" },
++    { 0x22, GGX_F1_NARG, "bad" },
++    { 0x23, GGX_F1_NARG, "bad" },
++    { 0x24, GGX_F1_NARG, "bad" },
++    { 0x25, GGX_F1_NARG, "bad" },
++    { 0x26, GGX_F1_NARG, "bad" },
++    { 0x27, GGX_F1_NARG, "bad" },
++    { 0x28, GGX_F1_NARG, "bad" },
++    { 0x29, GGX_F1_NARG, "bad" },
++    { 0x2a, GGX_F1_NARG, "bad" },
++    { 0x2b, GGX_F1_NARG, "bad" },
++    { 0x2c, GGX_F1_NARG, "bad" },
++    { 0x2d, GGX_F1_NARG, "bad" },
++    { 0x2e, GGX_F1_NARG, "bad" },
++    { 0x2f, GGX_F1_NARG, "bad" },
++    { 0x30, GGX_F1_NARG, "bad" },
++    { 0x31, GGX_F1_NARG, "bad" },
++    { 0x32, GGX_F1_NARG, "bad" },
++    { 0x33, GGX_F1_NARG, "bad" },
++    { 0x34, GGX_F1_NARG, "bad" },
++    { 0x35, GGX_F1_NARG, "bad" },
++    { 0x36, GGX_F1_NARG, "bad" },
++    { 0x37, GGX_F1_NARG, "bad" },
++    { 0x38, GGX_F1_NARG, "bad" },
++    { 0x39, GGX_F1_NARG, "bad" },
++    { 0x3a, GGX_F1_NARG, "bad" },
++    { 0x3b, GGX_F1_NARG, "bad" },
++    { 0x3c, GGX_F1_NARG, "bad" },
++    { 0x3d, GGX_F1_NARG, "bad" },
++    { 0x3e, GGX_F1_NARG, "bad" },
++    { 0x3f, GGX_F1_NARG, "bad" }
++  };
++
++const ggx_opc_info_t ggx_form2_opc_info[8] =
++  {
++    { 0x01, GGX_F2_NARG, "bad" },
++    { 0x01, GGX_F2_NARG, "bad" },
++    { 0x02, GGX_F2_NARG, "bad" },
++    { 0x03, GGX_F2_NARG, "bad" },
++    { 0x04, GGX_F2_NARG, "bad" },
++    { 0x05, GGX_F2_NARG, "bad" },
++    { 0x06, GGX_F2_NARG, "bad" },
++    { 0x07, GGX_F2_NARG, "bad" }
++  };
++

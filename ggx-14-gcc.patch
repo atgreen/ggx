@@ -1,0 +1,113 @@
+diff -r 92c701ff4e7d gcc/ChangeLog.ggx
+--- a/gcc/ChangeLog.ggx	Wed Mar 19 07:23:35 2008 -0700
++++ b/gcc/ChangeLog.ggx	Wed Mar 19 09:06:25 2008 -0700
+@@ -1,4 +1,9 @@ 2008-03-19  Anthony Green  <green@spinda
+-2008-03-19  Anthony Green  <green@spindazzle.org>
++2008-03-18  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.md (ggx_general_movsrc_operand): Define predicate.
++	(*movsi): Add load and store patterns.
++
++2008-03-18  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/ggx/ggx.md: Add push, pop and addsi patterns.
+ 
+diff -r 92c701ff4e7d gcc/config/ggx/ggx.h
+--- a/gcc/config/ggx/ggx.h	Wed Mar 19 07:23:35 2008 -0700
++++ b/gcc/config/ggx/ggx.h	Wed Mar 19 09:06:25 2008 -0700
+@@ -95,16 +95,8 @@ enum reg_class
+   LIM_REG_CLASSES
+ };
+ 
+-#define CONSTRAINT_LEN(CHAR,STR) DEFAULT_CONSTRAINT_LEN(CHAR,STR)
+-#define REG_CLASS_FROM_CONSTRAINT(CHAR,STR) (abort(), 0)
+ #define CONST_OK_FOR_CONSTRAINT_P(VALUE,C,STR) \
+   (abort(), 0)
+-#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE,C,STR) 0
+-#define EXTRA_CONSTRAINT_STR(VALUE,C,STR) \
+-  (abort(), 0)
+-#define EXTRA_MEMORY_CONSTRAINT(C,STR) \
+-  (abort(), 0)
+-#define EXTRA_ADDRESS_CONSTRAINT(C,STR) 0
+ 
+ #define REG_CLASS_CONTENTS \
+ { { 0x00000000 }, /* Empty */			   \
+diff -r 92c701ff4e7d gcc/config/ggx/ggx.md
+--- a/gcc/config/ggx/ggx.md	Wed Mar 19 07:23:35 2008 -0700
++++ b/gcc/config/ggx/ggx.md	Wed Mar 19 09:06:25 2008 -0700
+@@ -1,18 +1,40 @@
++;; -------------------------------------------------------------------------
++;; Constraints
++;; -------------------------------------------------------------------------
++
++(define_constraint "W"
++  "A register indirect memory operand."
++  (and (match_code "mem")
++       (match_test "REG_P (XEXP (op, 0))
++		    && REGNO_OK_FOR_BASE_P (REGNO (XEXP (op, 0)))")))
++
+ ;; -------------------------------------------------------------------------
+ ;; Add instructions
+ ;; -------------------------------------------------------------------------
+ 
+ (define_insn "addsi3"
+-  [(set (match_operand:SI 0 "register_operand" "=r,r")
++  [(set (match_operand:SI 0 "register_operand" "=r")
+ 	  (plus:SI
+-	   (match_operand:SI 1 "register_operand" "r,r")
+-	   (match_operand:SI 2 "general_operand" "r,n")))]
++	   (match_operand:SI 1 "register_operand" "r")
++	   (match_operand:SI 2 "general_operand" "r")))]
+   ""
+   "add.l  %0, %1, %2")
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Move instructions
+ ;; -------------------------------------------------------------------------
++
++;; Nonzero if OP can be source of a simple move operation.
++
++(define_predicate "ggx_general_movsrc_operand"
++  (match_code "mem,const_int,reg,subreg,symbol_ref,label_ref,const")
++{
++  /* Any (MEM LABEL_REF) is OK.  That is a pc-relative load.  */
++  if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == LABEL_REF)
++    return 1;
++
++  return general_operand (op, mode);
++})
+ 
+ ;; SImode
+ 
+@@ -42,13 +64,17 @@
+ }")
+ 
+ (define_insn "*movsi"
+-  [(set (match_operand:SI 0 "general_operand" "=r,r")
+-	(match_operand:SI 1 "general_operand" "r,i"))]
++  [(set (match_operand:SI 0 "general_operand" "=r,r,W,m,r,r")
++	(match_operand:SI 1 "ggx_general_movsrc_operand" "r,i,r,r,W,m"))]
+   "register_operand (operands[0], SImode)
+    || register_operand (operands[1], SImode)"
+   "@
+    mov    %0, %1
+-   ldi.l  %0, %1")
++   ldi.l  %0, %1
++   st.l   %0, %1
++   sta.l  %0, %1
++   ld.l   %0, %1
++   lda.l  %0, %1")
+ 
+ (define_expand "movhi"
+    [(set (match_operand:HI 0 "general_operand" "")
+@@ -67,10 +93,6 @@
+   "register_operand (operands[0], HImode)
+    || register_operand (operands[1], HImode)"
+   "mov   %0, %1")
+-
+-;; -------------------------------------------------------------------------
+-;; Jump instructions
+-;; -------------------------------------------------------------------------
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Call and Jump instructions

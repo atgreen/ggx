@@ -1,0 +1,1056 @@
+diff -r ed0fac58d697 bfd/ChangeLog.ggx
+--- a/bfd/ChangeLog.ggx	Fri Mar 21 04:58:45 2008 -0700
++++ b/bfd/ChangeLog.ggx	Fri Mar 21 17:39:20 2008 -0700
+@@ -1,3 +1,9 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-03-21  Anthony Green  <green@spindazzle.org>
++
++	* reloc.c (BFD_RELOC_GGX_12): Define.
++
++	* elf32-ggx.c (ggx_elf_reloc): Fix R_GGX_DATA_DIR32 relocation.
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+  	* elf32-ggx.c (ggx_elf_reloc, ggx_elf_howto_table,
+diff -r ed0fac58d697 bfd/elf32-ggx.c
+--- a/bfd/elf32-ggx.c	Fri Mar 21 04:58:45 2008 -0700
++++ b/bfd/elf32-ggx.c	Fri Mar 21 17:39:20 2008 -0700
+@@ -1,5 +1,9 @@
+-/* ggx support for 32-bit ELF
+-   Copyright 2008 Free Software Foundation, Inc.
++/* ggx-specific support for 32-bit ELF.
++   Copyright 2008 Anthony Green.
++
++   Copied from elf32-fr30.c which is..
++   Copyright 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
++   Free Software Foundation, Inc.
+ 
+    This file is part of BFD, the Binary File Descriptor library.
+ 
+@@ -24,128 +28,85 @@
+ #include "elf-bfd.h"
+ #include "elf/ggx.h"
+ 
+-/* This function is used for normal relocs.  This is like the COFF
+-   function, and is almost certainly incorrect for other ELF targets.  */
++/* Forward declarations.  */
++static reloc_howto_type * ggx_reloc_type_lookup
++  PARAMS ((bfd *abfd, bfd_reloc_code_real_type code));
++static void ggx_info_to_howto_rela
++  PARAMS ((bfd *, arelent *, Elf_Internal_Rela *));
++static bfd_boolean ggx_elf_relocate_section
++  PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *, bfd_byte *,
++	   Elf_Internal_Rela *, Elf_Internal_Sym *, asection **));
++static bfd_reloc_status_type ggx_final_link_relocate
++  PARAMS ((reloc_howto_type *, bfd *, asection *, bfd_byte *,
++	   Elf_Internal_Rela *, bfd_vma));
++static bfd_boolean ggx_elf_check_relocs
++  PARAMS ((bfd *, struct bfd_link_info *, asection *,
++	   const Elf_Internal_Rela *));
+ 
+-static bfd_reloc_status_type
+-ggx_elf_reloc (bfd *abfd,
+-		 arelent *reloc_entry,
+-		 asymbol *symbol_in,
+-		 void * data,
+-		 asection *input_section,
+-		 bfd *output_bfd,
+-		 char **error_message ATTRIBUTE_UNUSED)
++static reloc_howto_type ggx_elf_howto_table [] =
+ {
+-  unsigned long insn;
+-  bfd_vma sym_value;
+-  enum elf_ggx_reloc_type r_type;
+-  bfd_vma addr = reloc_entry->address;
+-  bfd_byte *hit_data = addr + (bfd_byte *) data;
+-
+-  r_type = (enum elf_ggx_reloc_type) reloc_entry->howto->type;
+-
+-  if (output_bfd != NULL)
+-    {
+-      /* Partial linking--do nothing.  */
+-      reloc_entry->address += input_section->output_offset;
+-      return bfd_reloc_ok;
+-    }
+-
+-  if (symbol_in != NULL
+-      && bfd_is_und_section (symbol_in->section))
+-    return bfd_reloc_undefined;
+-
+-  if (bfd_is_com_section (symbol_in->section))
+-    sym_value = 0;
+-  else
+-    sym_value = (symbol_in->value +
+-		 symbol_in->section->output_section->vma +
+-		 symbol_in->section->output_offset);
+-
+-  switch (r_type)
+-    {
+-    case R_GGX_DATA_DIR32:
+-      insn = sym_value + reloc_entry->addend;
+-      bfd_put_32 (abfd, (bfd_vma) insn, hit_data);
+-      break;
+-
+-    default:
+-      abort ();
+-      break;
+-    }
+-
+-  return bfd_reloc_ok;
+-}
+-
+-static reloc_howto_type ggx_elf_howto_table[] =
+-{
+-  /* No relocation.  */
++  /* This reloc does nothing.  */
+   HOWTO (R_GGX_NONE,		/* type */
+-	 0,			/* rightshift */
+-	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+-	 0,			/* bitsize */
+-	 FALSE,			/* pc_relative */
+-	 0,			/* bitpos */
+-	 complain_overflow_dont, /* complain_on_overflow */
+-	 ggx_elf_reloc,	        /* special_function */
+-	 "R_GGX_NONE",	        /* name */
+-	 FALSE,			/* partial_inplace */
+-	 0,			/* src_mask */
+-	 0,			/* dst_mask */
+-	 FALSE),		/* pcrel_offset */
+-
+-  /* 32 bit absolute relocation.  Setting partial_inplace to TRUE and
+-     src_mask to a non-zero value is similar to the COFF toolchain.  */
+-  HOWTO (R_GGX_DATA_DIR32,	/* type */
+ 	 0,			/* rightshift */
+ 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+ 	 32,			/* bitsize */
+ 	 FALSE,			/* pc_relative */
+ 	 0,			/* bitpos */
+ 	 complain_overflow_bitfield, /* complain_on_overflow */
+-	 ggx_elf_reloc,	        /* special_function */
+-	 "R_GGX_DIR32",		/* name */
+-	 TRUE,			/* partial_inplace */
+-	 0xffffffff,		/* src_mask */
++	 bfd_elf_generic_reloc,	/* special_function */
++	 "R_GGX_NONE",		/* name */
++	 FALSE,			/* partial_inplace */
++	 0,			/* src_mask */
++	 0,			/* dst_mask */
++	 FALSE),		/* pcrel_offset */
++
++  /* A 32 bit absolute relocation.  */
++  HOWTO (R_GGX_32,		/* type */
++	 0,			/* rightshift */
++	 2,			/* size (0 = byte, 1 = short, 2 = long) */
++	 32,			/* bitsize */
++	 FALSE,			/* pc_relative */
++	 0,			/* bitpos */
++	 complain_overflow_bitfield, /* complain_on_overflow */
++	 bfd_elf_generic_reloc,	/* special_function */
++	 "R_GGX_32",		/* name */
++	 FALSE,			/* partial_inplace */
++	 0x00000000,		/* src_mask */
+ 	 0xffffffff,		/* dst_mask */
+ 	 FALSE),		/* pcrel_offset */
+ };
++
++/* Map BFD reloc types to GGX ELF reloc types.  */
+ 
+-/* This structure is used to map BFD reloc codes to ggx elf relocs.  */
+-
+-struct elf_reloc_map
++struct ggx_reloc_map
+ {
+   bfd_reloc_code_real_type bfd_reloc_val;
+-  unsigned char elf_reloc_val;
++  unsigned int ggx_reloc_val;
+ };
+ 
+-/* An array mapping BFD reloc codes to ggx elf relocs.  */
+-
+-static const struct elf_reloc_map ggx_reloc_map[] =
++static const struct ggx_reloc_map ggx_reloc_map [] =
+ {
+-    { BFD_RELOC_NONE, 		R_GGX_NONE          },
+-    { BFD_RELOC_32, 		R_GGX_DATA_DIR32    }
++  { BFD_RELOC_NONE,           R_GGX_NONE },
++  { BFD_RELOC_32,             R_GGX_32 },
+ };
+ 
+-/* Given a BFD reloc code, return the howto structure for the
+-   corresponding ggx elf reloc.  */
+-
+ static reloc_howto_type *
+-ggx_elf_reloc_type_lookup (bfd *abfd ATTRIBUTE_UNUSED,
+-			     bfd_reloc_code_real_type code)
++ggx_reloc_type_lookup (abfd, code)
++     bfd *abfd ATTRIBUTE_UNUSED;
++     bfd_reloc_code_real_type code;
+ {
+   unsigned int i;
+ 
+-  for (i = 0; i < sizeof (ggx_reloc_map) / sizeof (struct elf_reloc_map); i++)
+-    if (ggx_reloc_map[i].bfd_reloc_val == code)
+-      return & ggx_elf_howto_table[(int) ggx_reloc_map[i].elf_reloc_val];
++  for (i = sizeof (ggx_reloc_map) / sizeof (ggx_reloc_map[0]);
++       --i;)
++    if (ggx_reloc_map [i].bfd_reloc_val == code)
++      return & ggx_elf_howto_table [ggx_reloc_map[i].ggx_reloc_val];
+ 
+   return NULL;
+ }
+ 
+ static reloc_howto_type *
+-ggx_elf_reloc_name_lookup (bfd *abfd ATTRIBUTE_UNUSED,
+-			  const char *r_name)
++ggx_reloc_name_lookup (bfd *abfd ATTRIBUTE_UNUSED, const char *r_name)
+ {
+   unsigned int i;
+ 
+@@ -159,29 +120,278 @@ ggx_elf_reloc_name_lookup (bfd *abfd ATT
+   return NULL;
+ }
+ 
+-/* Given an ELF reloc, fill in the howto field of a relent.  */
++/* Set the howto pointer for an GGX ELF reloc.  */
+ 
+ static void
+-ggx_elf_info_to_howto (bfd *abfd ATTRIBUTE_UNUSED,
+-		      arelent *cache_ptr,
+-		      Elf_Internal_Rela *dst)
++ggx_info_to_howto_rela (abfd, cache_ptr, dst)
++     bfd *abfd ATTRIBUTE_UNUSED;
++     arelent *cache_ptr;
++     Elf_Internal_Rela *dst;
+ {
+-  unsigned int r;
++  unsigned int r_type;
+ 
+-  r = ELF32_R_TYPE (dst->r_info);
++  r_type = ELF32_R_TYPE (dst->r_info);
++  BFD_ASSERT (r_type < (unsigned int) R_GGX_max);
++  cache_ptr->howto = & ggx_elf_howto_table [r_type];
++}
++
++/* Perform a single relocation.  By default we use the standard BFD
++   routines, but a few relocs, we have to do them ourselves.  */
+ 
+-  BFD_ASSERT (r < (unsigned int) R_GGX_max);
++static bfd_reloc_status_type
++ggx_final_link_relocate (howto, input_bfd, input_section, contents, rel,
++			  relocation)
++     reloc_howto_type *howto;
++     bfd *input_bfd;
++     asection *input_section;
++     bfd_byte *contents;
++     Elf_Internal_Rela *rel;
++     bfd_vma relocation;
++{
++  bfd_reloc_status_type r = bfd_reloc_ok;
+ 
+-  cache_ptr->howto = &ggx_elf_howto_table[r];
++  switch (howto->type)
++    {
++    default:
++      r = _bfd_final_link_relocate (howto, input_bfd, input_section,
++				    contents, rel->r_offset,
++				    relocation, rel->r_addend);
++    }
++
++  return r;
++}
++
++/* Relocate an GGX ELF section.
++
++   The RELOCATE_SECTION function is called by the new ELF backend linker
++   to handle the relocations for a section.
++
++   The relocs are always passed as Rela structures; if the section
++   actually uses Rel structures, the r_addend field will always be
++   zero.
++
++   This function is responsible for adjusting the section contents as
++   necessary, and (if using Rela relocs and generating a relocatable
++   output file) adjusting the reloc addend as necessary.
++
++   This function does not have to worry about setting the reloc
++   address or the reloc symbol index.
++
++   LOCAL_SYMS is a pointer to the swapped in local symbols.
++
++   LOCAL_SECTIONS is an array giving the section in the input file
++   corresponding to the st_shndx field of each local symbol.
++
++   The global hash table entry for the global symbols can be found
++   via elf_sym_hashes (input_bfd).
++
++   When generating relocatable output, this function must handle
++   STB_LOCAL/STT_SECTION symbols specially.  The output symbol is
++   going to be the section symbol corresponding to the output
++   section, which means that the addend must be adjusted
++   accordingly.  */
++
++static bfd_boolean
++ggx_elf_relocate_section (output_bfd, info, input_bfd, input_section,
++			   contents, relocs, local_syms, local_sections)
++     bfd *output_bfd;
++     struct bfd_link_info *info;
++     bfd *input_bfd;
++     asection *input_section;
++     bfd_byte *contents;
++     Elf_Internal_Rela *relocs;
++     Elf_Internal_Sym *local_syms;
++     asection **local_sections;
++{
++  Elf_Internal_Shdr *symtab_hdr;
++  struct elf_link_hash_entry **sym_hashes;
++  Elf_Internal_Rela *rel;
++  Elf_Internal_Rela *relend;
++
++  symtab_hdr = & elf_tdata (input_bfd)->symtab_hdr;
++  sym_hashes = elf_sym_hashes (input_bfd);
++  relend     = relocs + input_section->reloc_count;
++
++  for (rel = relocs; rel < relend; rel ++)
++    {
++      reloc_howto_type *howto;
++      unsigned long r_symndx;
++      Elf_Internal_Sym *sym;
++      asection *sec;
++      struct elf_link_hash_entry *h;
++      bfd_vma relocation;
++      bfd_reloc_status_type r;
++      const char *name;
++      int r_type;
++
++      r_type = ELF32_R_TYPE (rel->r_info);
++
++      r_symndx = ELF32_R_SYM (rel->r_info);
++
++      howto  = ggx_elf_howto_table + ELF32_R_TYPE (rel->r_info);
++      h      = NULL;
++      sym    = NULL;
++      sec    = NULL;
++
++      if (r_symndx < symtab_hdr->sh_info)
++	{
++	  sym = local_syms + r_symndx;
++	  sec = local_sections [r_symndx];
++	  relocation = _bfd_elf_rela_local_sym (output_bfd, sym, &sec, rel);
++
++	  name = bfd_elf_string_from_elf_section
++	    (input_bfd, symtab_hdr->sh_link, sym->st_name);
++	  name = (name == NULL) ? bfd_section_name (input_bfd, sec) : name;
++	}
++      else
++	{
++	  bfd_boolean unresolved_reloc, warned;
++
++	  RELOC_FOR_GLOBAL_SYMBOL (info, input_bfd, input_section, rel,
++				   r_symndx, symtab_hdr, sym_hashes,
++				   h, sec, relocation,
++				   unresolved_reloc, warned);
++
++	  name = h->root.root.string;
++	}
++
++      if (sec != NULL && elf_discarded_section (sec))
++	{
++	  /* For relocs against symbols from removed linkonce sections,
++	     or sections discarded by a linker script, we just want the
++	     section contents zeroed.  Avoid any special processing.  */
++	  _bfd_clear_contents (howto, input_bfd, contents + rel->r_offset);
++	  rel->r_info = 0;
++	  rel->r_addend = 0;
++	  continue;
++	}
++
++      if (info->relocatable)
++	continue;
++
++      r = ggx_final_link_relocate (howto, input_bfd, input_section,
++				     contents, rel, relocation);
++
++      if (r != bfd_reloc_ok)
++	{
++	  const char * msg = (const char *) NULL;
++
++	  switch (r)
++	    {
++	    case bfd_reloc_overflow:
++	      r = info->callbacks->reloc_overflow
++		(info, (h ? &h->root : NULL), name, howto->name,
++		 (bfd_vma) 0, input_bfd, input_section, rel->r_offset);
++	      break;
++
++	    case bfd_reloc_undefined:
++	      r = info->callbacks->undefined_symbol
++		(info, name, input_bfd, input_section, rel->r_offset,
++		 TRUE);
++	      break;
++
++	    case bfd_reloc_outofrange:
++	      msg = _("internal error: out of range error");
++	      break;
++
++	    case bfd_reloc_notsupported:
++	      msg = _("internal error: unsupported relocation error");
++	      break;
++
++	    case bfd_reloc_dangerous:
++	      msg = _("internal error: dangerous relocation");
++	      break;
++
++	    default:
++	      msg = _("internal error: unknown error");
++	      break;
++	    }
++
++	  if (msg)
++	    r = info->callbacks->warning
++	      (info, msg, name, input_bfd, input_section, rel->r_offset);
++
++	  if (! r)
++	    return FALSE;
++	}
++    }
++
++  return TRUE;
++}
++
++/* Return the section that should be marked against GC for a given
++   relocation.  */
++
++static asection *
++ggx_elf_gc_mark_hook (asection *sec,
++		       struct bfd_link_info *info,
++		       Elf_Internal_Rela *rel,
++		       struct elf_link_hash_entry *h,
++		       Elf_Internal_Sym *sym)
++{
++  return _bfd_elf_gc_mark_hook (sec, info, rel, h, sym);
+ }
+ 
+-#define TARGET_BIG_SYM		bfd_elf32_ggx_vec
+-#define TARGET_BIG_NAME		"elf32-ggx"
++/* Look through the relocs for a section during the first phase.
++   Since we don't do .gots or .plts, we just need to consider the
++   virtual table relocs for gc.  */
++
++static bfd_boolean
++ggx_elf_check_relocs (abfd, info, sec, relocs)
++     bfd *abfd;
++     struct bfd_link_info *info;
++     asection *sec;
++     const Elf_Internal_Rela *relocs;
++{
++  Elf_Internal_Shdr *symtab_hdr;
++  struct elf_link_hash_entry **sym_hashes;
++  const Elf_Internal_Rela *rel;
++  const Elf_Internal_Rela *rel_end;
++
++  if (info->relocatable)
++    return TRUE;
++
++  symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
++  sym_hashes = elf_sym_hashes (abfd);
++
++  rel_end = relocs + sec->reloc_count;
++  for (rel = relocs; rel < rel_end; rel++)
++    {
++      struct elf_link_hash_entry *h;
++      unsigned long r_symndx;
++
++      r_symndx = ELF32_R_SYM (rel->r_info);
++      if (r_symndx < symtab_hdr->sh_info)
++        h = NULL;
++      else
++	{
++	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
++	  while (h->root.type == bfd_link_hash_indirect
++		 || h->root.type == bfd_link_hash_warning)
++	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
++	}
++    }
++
++  return TRUE;
++}
++
+ #define ELF_ARCH		bfd_arch_ggx
+ #define ELF_MACHINE_CODE	EM_GGX
+-#define ELF_MAXPAGESIZE  	1
+-#define bfd_elf32_bfd_reloc_type_lookup ggx_elf_reloc_type_lookup
+-#define bfd_elf32_bfd_reloc_name_lookup ggx_elf_reloc_name_lookup
+-#define elf_info_to_howto		ggx_elf_info_to_howto
++#define ELF_MAXPAGESIZE		0x1
++
++#define TARGET_BIG_SYM          bfd_elf32_ggx_vec
++#define TARGET_BIG_NAME		"elf32-ggx"
++
++#define elf_info_to_howto_rel			NULL
++#define elf_info_to_howto			ggx_info_to_howto_rela
++#define elf_backend_relocate_section		ggx_elf_relocate_section
++#define elf_backend_gc_mark_hook		ggx_elf_gc_mark_hook
++#define elf_backend_check_relocs                ggx_elf_check_relocs
++
++#define elf_backend_can_gc_sections		1
++#define elf_backend_rela_normal			1
++
++#define bfd_elf32_bfd_reloc_type_lookup		ggx_reloc_type_lookup
++#define bfd_elf32_bfd_reloc_name_lookup	ggx_reloc_name_lookup
+ 
+ #include "elf32-target.h"
+diff -r ed0fac58d697 bfd/reloc.c
+--- a/bfd/reloc.c	Fri Mar 21 04:58:45 2008 -0700
++++ b/bfd/reloc.c	Fri Mar 21 17:39:20 2008 -0700
+@@ -2324,6 +2324,13 @@ ENUMX
+   BFD_RELOC_FRV_TLSMOFF
+ ENUMDOC
+   Fujitsu Frv Relocations.
++COMMENT
++
++ENUM
++  BFD_RELOC_GGX_12
++ENUMDOC
++  This is a 12 bit reloc for the GGX that stores a 12 bit absolute
++  offset.
+ COMMENT
+ 
+ ENUM
+diff -r ed0fac58d697 gas/config/tc-ggx.c
+--- a/gas/config/tc-ggx.c	Fri Mar 21 04:58:45 2008 -0700
++++ b/gas/config/tc-ggx.c	Fri Mar 21 17:39:20 2008 -0700
+@@ -24,6 +24,7 @@
+ #include "as.h"
+ #include "safe-ctype.h"
+ #include "opcode/ggx.h"
++#include "elf/ggx.h"
+ 
+ extern const ggx_opc_info_t ggx_opc_info[128];
+ 
+@@ -161,7 +162,6 @@ md_assemble (char *str)
+ 
+   if (nlen == 0)
+     as_bad (_("can't find opcode "));
+-
+   opcode = (ggx_opc_info_t *) hash_find (opcode_hash_control, op_start);
+   *op_end = pend;
+ 
+@@ -175,27 +175,6 @@ md_assemble (char *str)
+ 
+   switch (opcode->itype)
+     {
+-    case GGX_F1_NARG:
+-      iword = opcode->opcode << 9;
+-      while (ISSPACE (*op_end))
+-	op_end++;
+-      if (*op_end != 0)
+-	as_warn ("extra stuff on line ignored");
+-      break;
+-    case GGX_F1_A:
+-      iword = opcode->opcode << 9;
+-      while (ISSPACE (*op_end))
+-	op_end++;
+-      {
+-	int reg;
+-	reg = parse_register_operand (&op_end);
+-	while (ISSPACE (*op_end))
+-	  op_end++;
+-	if (*op_end != 0)
+-	  as_warn ("extra stuff on line ignored");
+-	iword += (reg << 6);
+-      }
+-      break;
+     case GGX_F1_AB:
+       iword = opcode->opcode << 9;
+       while (ISSPACE (*op_end))
+@@ -285,6 +264,27 @@ md_assemble (char *str)
+ 		     &arg,
+ 		     0,
+ 		     BFD_RELOC_32);
++      }
++      break;
++    case GGX_F1_NARG:
++      iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      if (*op_end != 0)
++	as_warn ("extra stuff on line ignored");
++      break;
++    case GGX_F1_A:
++      iword = opcode->opcode << 9;
++      while (ISSPACE (*op_end))
++	op_end++;
++      {
++	int reg;
++	reg = parse_register_operand (&op_end);
++	while (ISSPACE (*op_end))
++	  op_end++;
++	if (*op_end != 0)
++	  as_warn ("extra stuff on line ignored");
++	iword += (reg << 6);
+       }
+       break;
+     case GGX_F1_ABi:
+@@ -501,9 +501,6 @@ md_assemble (char *str)
+       if (*op_end != 0)
+ 	as_warn ("extra stuff on line ignored");
+       break;
+-    case GGX_F2_12V:
+-      iword = opcode->opcode << 12;
+-      break;
+     default:
+       abort();
+     }
+@@ -624,35 +621,74 @@ md_number_to_chars (char *ptr, valueT us
+   number_to_chars_bigendian (ptr, use, nbytes);
+ }
+ 
+-/* Translate internal representation of relocation info to BFD target
+-   format.  */
++/* Generate a machine-dependent relocation.  */
++arelent *
++tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixP)
++{
++  arelent *relP;
++  bfd_reloc_code_real_type code;
+ 
+-arelent *
+-tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixp)
+-{
+-  arelent *rel;
+-  bfd_reloc_code_real_type r_type;
+-
+-  rel = xmalloc (sizeof (arelent));
+-  rel->sym_ptr_ptr = xmalloc (sizeof (asymbol *));
+-  *rel->sym_ptr_ptr = symbol_get_bfdsym (fixp->fx_addsy);
+-  rel->address = fixp->fx_frag->fr_address + fixp->fx_where;
+-
+-  r_type = fixp->fx_r_type;
+-  rel->addend = fixp->fx_addnumber;
+-  rel->howto = bfd_reloc_type_lookup (stdoutput, r_type);
+-
+-  if (rel->howto == NULL)
++  switch (fixP->fx_r_type)
+     {
+-      as_bad_where (fixp->fx_file, fixp->fx_line,
+-		    _("Cannot represent relocation type %s"),
+-		    bfd_get_reloc_code_name (r_type));
+-      /* Set howto to a garbage value so that we can keep going.  */
+-      rel->howto = bfd_reloc_type_lookup (stdoutput, BFD_RELOC_32);
+-      assert (rel->howto != NULL);
++    case BFD_RELOC_32:
++      code = fixP->fx_r_type;
++      break;
++    default:
++      as_bad_where (fixP->fx_file, fixP->fx_line,
++		    _("Semantics error.  This type of operand can not be relocated, it must be an assembly-time constant"));
++      return 0;
+     }
+ 
+-  return rel;
++  relP = (arelent *) xmalloc (sizeof (arelent));
++  assert (relP != 0);
++  relP->sym_ptr_ptr = (asymbol **) xmalloc (sizeof (asymbol *));
++  *relP->sym_ptr_ptr = symbol_get_bfdsym (fixP->fx_addsy);
++  relP->address = fixP->fx_frag->fr_address + fixP->fx_where;
++
++  relP->addend = fixP->fx_offset;
++
++  /* This is the standard place for KLUDGEs to work around bugs in
++     bfd_install_relocation (first such note in the documentation
++     appears with binutils-2.8).
++
++     That function bfd_install_relocation does the wrong thing with
++     putting stuff into the addend of a reloc (it should stay out) for a
++     weak symbol.  The really bad thing is that it adds the
++     "segment-relative offset" of the symbol into the reloc.  In this
++     case, the reloc should instead be relative to the symbol with no
++     other offset than the assembly code shows; and since the symbol is
++     weak, any local definition should be ignored until link time (or
++     thereafter).
++     To wit:  weaksym+42  should be weaksym+42 in the reloc,
++     not weaksym+(offset_from_segment_of_local_weaksym_definition)
++
++     To "work around" this, we subtract the segment-relative offset of
++     "known" weak symbols.  This evens out the extra offset.
++
++     That happens for a.out but not for ELF, since for ELF,
++     bfd_install_relocation uses the "special function" field of the
++     howto, and does not execute the code that needs to be undone.  */
++
++  if (OUTPUT_FLAVOR == bfd_target_aout_flavour
++      && fixP->fx_addsy && S_IS_WEAK (fixP->fx_addsy)
++      && ! bfd_is_und_section (S_GET_SEGMENT (fixP->fx_addsy)))
++    {
++      relP->addend -= S_GET_VALUE (fixP->fx_addsy);
++    }
++
++  relP->howto = bfd_reloc_type_lookup (stdoutput, code);
++  if (! relP->howto)
++    {
++      const char *name;
++
++      name = S_GET_NAME (fixP->fx_addsy);
++      if (name == NULL)
++	name = _("<unknown>");
++      as_fatal (_("Cannot generate relocation type for symbol %s, code %s"),
++		name, bfd_get_reloc_code_name (code));
++    }
++
++  return relP;
+ }
+ 
+ /* Decide from what point a pc-relative relocation is relative to,
+diff -r ed0fac58d697 include/elf/ChangeLog.ggx
+--- a/include/elf/ChangeLog.ggx	Fri Mar 21 04:58:45 2008 -0700
++++ b/include/elf/ChangeLog.ggx	Fri Mar 21 17:39:21 2008 -0700
+@@ -1,3 +1,7 @@ 2008-03-11  Anthony Green  <green@spinda
++2008-03-21  Anthony Green  <green@spindazzle.org>
++
++	* ggx.h (R_GGX_ABS12): Define.
++
+ 2008-03-11  Anthony Green  <green@spindazzle.org>
+ 
+ 	* ggx.h (R_GGX_DATA_DIR32): Define.
+diff -r ed0fac58d697 include/elf/ggx.h
+--- a/include/elf/ggx.h	Fri Mar 21 04:58:45 2008 -0700
++++ b/include/elf/ggx.h	Fri Mar 21 17:39:21 2008 -0700
+@@ -25,7 +25,7 @@
+ /* Relocation types.  */
+ START_RELOC_NUMBERS (elf_ggx_reloc_type)
+   RELOC_NUMBER (R_GGX_NONE, 0)
+-  RELOC_NUMBER (R_GGX_DATA_DIR32, 1)
++  RELOC_NUMBER (R_GGX_32, 1)
+ END_RELOC_NUMBERS (R_GGX_max)
+ 
+ #endif
+diff -r ed0fac58d697 ld/emulparams/elf32ggx.sh
+--- a/ld/emulparams/elf32ggx.sh	Fri Mar 21 04:58:45 2008 -0700
++++ b/ld/emulparams/elf32ggx.sh	Fri Mar 21 17:39:21 2008 -0700
+@@ -5,3 +5,4 @@ TEXT_START_ADDR=0x1000
+ TEXT_START_ADDR=0x1000
+ MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
+ ARCH=ggx
++STACK_ADDR=0x200000
+diff -r ed0fac58d697 opcodes/ChangeLog.ggx
+--- a/opcodes/ChangeLog.ggx	Fri Mar 21 04:58:45 2008 -0700
++++ b/opcodes/ChangeLog.ggx	Fri Mar 21 17:39:21 2008 -0700
+@@ -1,3 +1,10 @@ 2008-03-20  Anthony Green  <green@spinda
++2008-03-21  Anthony Green  <green@spindazzle.org>
++
++	* ggx-dis.c (print_insn_ggx): Add GGX_F2_V12 support.
++
++	* ggx-opc.c (ggx_form1_opc_info): Add and, lshr, ashl, sub.l, neg,
++	or, not, ashr, xor, mul.l.
++
+ 2008-03-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* ggx-dis.c (print_insn_ggx): Add GGX_F1_A support.
+diff -r ed0fac58d697 opcodes/ggx-dis.c
+--- a/opcodes/ggx-dis.c	Fri Mar 21 04:58:45 2008 -0700
++++ b/opcodes/ggx-dis.c	Fri Mar 21 17:39:21 2008 -0700
+@@ -155,6 +155,11 @@ print_insn_ggx (bfd_vma addr, struct dis
+       opcode = &ggx_form2_opc_info[(iword >> 12) & 7];
+       switch (opcode->itype)
+ 	{
++	case GGX_F2_12V:
++	  fpr (stream, "%s\t0x%x", 
++	       opcode->name,
++	       iword & ((1 << 12) - 1));
++	  break;
+ 	case GGX_F2_NARG:
+ 	  fpr (stream, "%s", opcode->name);
+ 	  break;
+diff -r ed0fac58d697 opcodes/ggx-opc.c
+--- a/opcodes/ggx-opc.c	Fri Mar 21 04:58:45 2008 -0700
++++ b/opcodes/ggx-opc.c	Fri Mar 21 17:39:21 2008 -0700
+@@ -84,21 +84,21 @@ const ggx_opc_info_t ggx_form1_opc_info[
+     { 0x22, GGX_F1_AiB,  "st.s" },
+     { 0x23, GGX_F1_4A,   "sta.s" },
+     { 0x24, GGX_F1_A,    "jmp" },
+-    { 0x25, GGX_F1_NARG, "bad" },
+-    { 0x26, GGX_F1_NARG, "bad" },
+-    { 0x27, GGX_F1_NARG, "bad" },
+-    { 0x28, GGX_F1_NARG, "bad" },
+-    { 0x29, GGX_F1_NARG, "bad" },
+-    { 0x2a, GGX_F1_NARG, "bad" },
+-    { 0x2b, GGX_F1_NARG, "bad" },
+-    { 0x2c, GGX_F1_NARG, "bad" },
+-    { 0x2d, GGX_F1_NARG, "bad" },
+-    { 0x2e, GGX_F1_NARG, "bad" },
+-    { 0x2f, GGX_F1_NARG, "bad" },
+-    { 0x30, GGX_F1_NARG, "bad" },
+-    { 0x31, GGX_F1_NARG, "bad" },
+-    { 0x32, GGX_F1_NARG, "bad" },
+-    { 0x33, GGX_F1_NARG, "bad" },
++    { 0x25, GGX_F1_ABC,  "and" },
++    { 0x26, GGX_F1_AB,   "lshr" },
++    { 0x27, GGX_F1_AB,   "ashl" },
++    { 0x28, GGX_F1_ABC,  "sub.l" },
++    { 0x29, GGX_F1_AB,   "neg" },
++    { 0x2a, GGX_F1_ABC,  "or" },
++    { 0x2b, GGX_F1_AB,   "not" },
++    { 0x2c, GGX_F1_AB,   "ashr" },
++    { 0x2d, GGX_F1_ABC,  "xor" },
++    { 0x2e, GGX_F1_ABC,  "mul.l" },
++    { 0x2f, GGX_F1_4,    "swi" },
++    { 0x30, GGX_F1_ABC,  "div.l" },
++    { 0x31, GGX_F1_ABC,  "udiv.l" },
++    { 0x32, GGX_F1_ABC,  "mod.l" },
++    { 0x33, GGX_F1_ABC,  "umod.l" },
+     { 0x34, GGX_F1_NARG, "bad" },
+     { 0x35, GGX_F1_NARG, "bad" },
+     { 0x36, GGX_F1_NARG, "bad" },
+@@ -115,7 +115,7 @@ const ggx_opc_info_t ggx_form1_opc_info[
+ 
+ const ggx_opc_info_t ggx_form2_opc_info[8] =
+   {
+-    { 0x01, GGX_F2_NARG, "bad" },
++    { 0x00, GGX_F2_NARG, "bad" },
+     { 0x01, GGX_F2_NARG, "bad" },
+     { 0x02, GGX_F2_NARG, "bad" },
+     { 0x03, GGX_F2_NARG, "bad" },
+diff -r ed0fac58d697 sim/ggx/ChangeLog
+--- a/sim/ggx/ChangeLog	Fri Mar 21 04:58:45 2008 -0700
++++ b/sim/ggx/ChangeLog	Fri Mar 21 17:39:21 2008 -0700
+@@ -1,3 +1,8 @@ 2008-03-20  Anthony Green  <green@spinda
++2008-03-21  Anthony Green  <green@spindazzle.org>
++
++	* interp.c (sim_resume): Add swi, and, lshr, ashl, sub.l, neg, or,
++	not, ashr, xor.
++
+ 2008-03-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* interp.c (struct ggx_regset): Add condition code, cc.
+diff -r ed0fac58d697 sim/ggx/interp.c
+--- a/sim/ggx/interp.c	Fri Mar 21 04:58:45 2008 -0700
++++ b/sim/ggx/interp.c	Fri Mar 21 17:39:21 2008 -0700
+@@ -18,6 +18,7 @@ along with this program.  If not, see <h
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+ 
+ #include <signal.h>
++#include <stdlib.h>
+ #include "sysdep.h"
+ #include <sys/times.h>
+ #include <sys/param.h>
+@@ -988,7 +989,221 @@ sim_resume (sd, step, siggnal)
+ 					     "# 0x%08x: jumping to 0x%x\n", opc, pc + 2);
+ 	      }
+ 	      break;
++	    case 0x25: /* and */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int c = inst & 0x7;
++		int bv, cv;
++		bv = cpu.asregs.regs[b];
++		cv = cpu.asregs.regs[c];
++		cpu.asregs.regs[a] = bv & cv;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: anded %s (0x%x) to %s (0x%x) and stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[b], bv,
++					     reg_names[c], cv,
++					     reg_names[a], cpu.asregs.regs[a]);
++	      }
++	      break;
++	    case 0x26: /* lshr */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int av = cpu.asregs.regs[a];
++		int bv = cpu.asregs.regs[b];
++		cpu.asregs.regs[a] = (unsigned) ((unsigned) av >> bv);
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: %s (0x%x) l>> %s (0x%x) and stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[a], av,
++					     reg_names[b], bv,
++					     reg_names[a], cpu.asregs.regs[a]);
++	      }
++	      break;
++	    case 0x27: /* ashl */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int av = cpu.asregs.regs[a];
++		int bv = cpu.asregs.regs[b];
++		cpu.asregs.regs[a] = av << bv;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: %s (0x%x) << %s (0x%x) and stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[a], av,
++					     reg_names[b], bv,
++					     reg_names[a], cpu.asregs.regs[a]);
++	      }
++	      break;
++	    case 0x28: /* sub.l */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int c = inst & 0x7;
++		unsigned bv = cpu.asregs.regs[b];
++		unsigned cv = cpu.asregs.regs[c];
++		cpu.asregs.regs[a] = bv - cv;
++
++ 		if (tracing)
++ 		  callback->printf_filtered (callback, 
++ 					     "# 0x%08x: %s (0x%x) = %s (0x%x) - %s (0x%x)\n",
++ 					     opc, 
++					     reg_names[a], cpu.asregs.regs[a],
++					     reg_names[b], bv,
++					     reg_names[c], cv);
++	      }
++	      break;
++	    case 0x29: /* neg */
++	      {
++		int a  = (inst >> 6) & 0x7;
++		int b  = (inst >> 3) & 0x7;
++		int av = cpu.asregs.regs[a];
++		int bv = cpu.asregs.regs[b];
++		cpu.asregs.regs[b] = - av;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: - %s (0x%x) stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[a], av,
++					     reg_names[b], cpu.asregs.regs[b]);
++	      }
++	      break;
++	    case 0x2a: /* or */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int c = inst & 0x7;
++		int bv, cv;
++		bv = cpu.asregs.regs[b];
++		cv = cpu.asregs.regs[c];
++		cpu.asregs.regs[a] = bv | cv;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: ored %s (0x%x) to %s (0x%x) and stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[b], bv,
++					     reg_names[c], cv,
++					     reg_names[a], cpu.asregs.regs[a]);
++	      }
++	      break;
++	    case 0x2b: /* not */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int bv = cpu.asregs.regs[b];
++		cpu.asregs.regs[a] = 0xffffffff ^ bv;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: notted %s (0x%x) and stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[b], bv,
++					     reg_names[a], cpu.asregs.regs[a]);
++	      }
++	      break;
++	    case 0x2c: /* ashr */
++	      {
++		int a  = (inst >> 6) & 0x7;
++		int b  = (inst >> 3) & 0x7;
++		int av = cpu.asregs.regs[a];
++		int bv = cpu.asregs.regs[b];
++		cpu.asregs.regs[a] = av >> bv;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: %s (0x%x) a>> %s (0x%x) and stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[a], av,
++					     reg_names[b], bv,
++					     reg_names[a], cpu.asregs.regs[a]);
++	      }
++	      break;
++	    case 0x2d: /* xor */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int c = inst & 0x7;
++		int bv, cv;
++		bv = cpu.asregs.regs[b];
++		cv = cpu.asregs.regs[c];
++		cpu.asregs.regs[a] = bv ^ cv;
++		  
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: xored %s (0x%x) to %s (0x%x) and stored in %s (0x%x)\n", 
++					     opc,
++					     reg_names[b], bv,
++					     reg_names[c], cv,
++					     reg_names[a], cpu.asregs.regs[a]);
++	      }
++	      break;
++	    case 0x2e: /* mul.l */
++	      {
++		int a = (inst >> 6) & 0x7;
++		int b = (inst >> 3) & 0x7;
++		int c = inst & 0x7;
++		unsigned bv = cpu.asregs.regs[b];
++		unsigned cv = cpu.asregs.regs[c];
++		cpu.asregs.regs[a] = bv * cv;
++
++ 		if (tracing)
++ 		  callback->printf_filtered (callback, 
++ 					     "# 0x%08x: %s (0x%x) = %s (0x%x) * %s (0x%x)\n",
++ 					     opc, 
++					     reg_names[a], cpu.asregs.regs[a],
++					     reg_names[b], bv,
++					     reg_names[c], cv);
++	      }
++	      break;
++	    case 0x2f: /* swi */
++	      {
++		unsigned int inum = EXTRACT_WORD(&memory[pc+2]);
++		switch (inum)
++		  {
++		  case 0x1: /* SYS_exit */
++		    {
++		      if (tracing)
++			callback->printf_filtered (callback, 
++						   "# program exiting with code 0x%x\n",
++						   cpu.asregs.regs[2]);
++		      cpu.asregs.exception = SIGQUIT;
++		    }
++		  case 0x5: /* SYS_write */
++		    {
++		      char *str = &memory[cpu.asregs.regs[3]];
++		      /* String length is at 0x8($fp) */
++		      unsigned count, len = EXTRACT_WORD(&memory[cpu.asregs.regs[0] + 8]);
++		      count = len;
++		      while (count-- > 0)
++			putchar (*(str++));
++		      cpu.asregs.regs[2] = len;
++		    }
++		    break;
++		  default:
++		    break;
++		  }
++		pc += 4;
++		if (tracing)
++		  callback->printf_filtered (callback, 
++					     "# 0x%08x: swi 0x%x\n", opc, inum); 
++	      }
++	      break;
+ 	    default:
++	      if (tracing)
++		callback->printf_filtered (callback, 
++					   "# 0x%08x: SIGILL on opcode 0x%x\n", 
++					   opc,
++					   opcode);
++
+ 	      cpu.asregs.exception = SIGILL;
+ 	      break;
+ 	    }

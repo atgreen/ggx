@@ -1,0 +1,125 @@
+diff -r bf801055b93c gcc/ChangeLog.ggx
+--- a/gcc/ChangeLog.ggx	Fri Mar 21 06:51:08 2008 -0700
++++ b/gcc/ChangeLog.ggx	Fri Mar 21 06:52:47 2008 -0700
+@@ -1,3 +1,8 @@ 2008-03-20  Anthony Green  <green@spinda
++2008-03-21  Anthony Green  <green@spindazzle.org>
++
++	* config/ggx/ggx.md (subsi, negsi2, one_cmplsi2, andsi3, xorsi3,
++	iorsi3, ashlsi3, ashrsi3, lshrsi3, mulsi3): New patterns.
++
+ 2008-03-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* config/ggx/ggx.md: (movqi, *movqi, movhi, *movhi): New patterns.
+diff -r bf801055b93c gcc/config/ggx/ggx.md
+--- a/gcc/config/ggx/ggx.md	Fri Mar 21 06:51:08 2008 -0700
++++ b/gcc/config/ggx/ggx.md	Fri Mar 21 06:52:47 2008 -0700
+@@ -9,7 +9,7 @@
+ 		    && REGNO_OK_FOR_BASE_P (REGNO (XEXP (op, 0)))")))
+ 
+ ;; -------------------------------------------------------------------------
+-;; Add instructions
++;; Arithmetic instructions
+ ;; -------------------------------------------------------------------------
+ 
+ (define_insn "addsi3"
+@@ -19,6 +19,100 @@
+ 	   (match_operand:SI 2 "general_operand" "r")))]
+   ""
+   "add.l  %0, %1, %2")
++
++(define_insn "subsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	  (minus:SI
++	   (match_operand:SI 1 "register_operand" "r")
++	   (match_operand:SI 2 "general_operand" "r")))]
++  ""
++  "sub.l  %0, %1, %2")
++
++(define_insn "mulsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	  (mult:SI
++	   (match_operand:SI 1 "register_operand" "r")
++	   (match_operand:SI 2 "general_operand" "r")))]
++  ""
++  "mul.l  %0, %1, %2")
++
++;; -------------------------------------------------------------------------
++;; Unary arithmetic instructions
++;; -------------------------------------------------------------------------
++
++(define_insn "negsi2"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	  (neg:SI (match_operand:SI 1 "register_operand" "r")))]
++  ""
++  "neg    %0, %1")
++
++(define_insn "one_cmplsi2"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(not:SI (match_operand:SI 1 "register_operand" "r")))]
++  ""
++  "not    %0, %1")
++
++;; -------------------------------------------------------------------------
++;; Logical operators
++;; -------------------------------------------------------------------------
++
++(define_insn "andsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(and:SI (match_operand:SI 1 "register_operand" "r")
++		(match_operand:SI 2 "register_operand" "r")))]
++  ""
++{
++  return "and    %0, %1, %2";
++})
++
++(define_insn "xorsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(xor:SI (match_operand:SI 1 "register_operand" "r")
++		(match_operand:SI 2 "register_operand" "r")))]
++  ""
++{
++  return "xor    %0, %1, %2";
++})
++
++(define_insn "iorsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(ior:SI (match_operand:SI 1 "register_operand" "r")
++		(match_operand:SI 2 "register_operand" "r")))]
++  ""
++{
++  return "or     %0, %1, %2";
++})
++
++;; -------------------------------------------------------------------------
++;; Shifters
++;; -------------------------------------------------------------------------
++
++(define_insn "ashlsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(ashift:SI (match_operand:SI 1 "register_operand" "0")
++		   (match_operand:SI 2 "register_operand" "r")))]
++  ""
++{
++  return "ashl   %0, %2";
++})
++
++(define_insn "ashrsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(ashiftrt:SI (match_operand:SI 1 "register_operand" "0")
++		     (match_operand:SI 2 "register_operand" "r")))]
++  ""
++{
++  return "ashr   %0, %2";
++})
++
++(define_insn "lshrsi3"
++  [(set (match_operand:SI 0 "register_operand" "=r")
++	(lshiftrt:SI (match_operand:SI 1 "register_operand" "0")
++		     (match_operand:SI 2 "register_operand" "r")))]
++  ""
++{
++  return "lshr   %0, %2";
++})
+ 
+ ;; -------------------------------------------------------------------------
+ ;; Move instructions

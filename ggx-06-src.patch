@@ -1,0 +1,166 @@
+diff -r 64e6cff31a49 ChangeLog.ggx
+--- a/ChangeLog.ggx	Mon Mar 10 08:34:10 2008 -0700
++++ b/ChangeLog.ggx	Tue Mar 11 11:28:14 2008 -0700
+@@ -1,3 +1,8 @@ 2008-02-20  Anthony Green  <green@spinda
++2008-02-20  Anthony Green  <green@spindazzle.org>
++
++	* configure.ac: Build ld.
++	* configure: Rebuilt.
++
+ 2008-02-20  Anthony Green  <green@spindazzle.org>
+ 
+ 	* configure.ac: Build bfd.
+diff -r 64e6cff31a49 configure
+--- a/configure	Mon Mar 10 08:34:10 2008 -0700
++++ b/configure	Tue Mar 11 11:28:14 2008 -0700
+@@ -2327,7 +2327,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs ld gprof"
++    noconfigdirs="$noconfigdirs gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r 64e6cff31a49 configure.ac
+--- a/configure.ac	Mon Mar 10 08:34:10 2008 -0700
++++ b/configure.ac	Tue Mar 11 11:28:14 2008 -0700
+@@ -605,7 +605,7 @@ case "${target}" in
+     ;;
+   ggx-*-*)
+     noconfigdirs="$noconfigdirs ${libgcj} gdb sim"
+-    noconfigdirs="$noconfigdirs ld gprof"
++    noconfigdirs="$noconfigdirs gprof"
+     ;;
+   h8300*-*-*)
+     noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
+diff -r 64e6cff31a49 ld/ChangeLog.ggx
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/ld/ChangeLog.ggx	Tue Mar 11 11:28:14 2008 -0700
+@@ -0,0 +1,7 @@
++2008-02-06  Anthony Green  <green@spindazzle.org>
++
++	* configure.tgt: Add ggx support.
++	* Makefile.am: Add ggx files.
++	* Makefile.in: Rebuilt.
++	* emulparams/elf32ggx.sh: New file.
++	* scripttempl/ggx.sc: New file.
+diff -r 64e6cff31a49 ld/Makefile.am
+--- a/ld/Makefile.am	Mon Mar 10 08:34:10 2008 -0700
++++ b/ld/Makefile.am	Tue Mar 11 11:28:14 2008 -0700
+@@ -172,6 +172,7 @@ ALL_EMULATIONS = \
+ 	eelf32elmipvxworks.o \
+ 	eelf32fr30.o \
+ 	eelf32frv.o \
++	eelf32ggx.o \
+ 	eelf32i370.o \
+ 	eelf32ip2k.o \
+ 	eelf32iq2000.o \
+@@ -700,6 +701,9 @@ eelf32frvfd.c: $(srcdir)/emulparams/elf3
+   $(srcdir)/emulparams/elf32frv.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf32frvfd "$(tdir_frv)"
++eelf32ggx.c: $(srcdir)/emulparams/elf32ggx.sh \
++  $(ELF_GEN_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++	${GENSCRIPTS} elf32ggx "$(tdir_ggx)"
+ eelf32mcore.c: $(srcdir)/emulparams/elf32mcore.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf32mcore "$(tdir_mcore)"
+diff -r 64e6cff31a49 ld/Makefile.in
+--- a/ld/Makefile.in	Mon Mar 10 08:34:10 2008 -0700
++++ b/ld/Makefile.in	Tue Mar 11 11:28:14 2008 -0700
+@@ -419,6 +419,7 @@ ALL_EMULATIONS = \
+ 	eelf32elmipvxworks.o \
+ 	eelf32fr30.o \
+ 	eelf32frv.o \
++	eelf32ggx.o \
+ 	eelf32i370.o \
+ 	eelf32ip2k.o \
+ 	eelf32iq2000.o \
+@@ -1526,6 +1527,9 @@ eelf32frvfd.c: $(srcdir)/emulparams/elf3
+   $(srcdir)/emulparams/elf32frv.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf32frvfd "$(tdir_frv)"
++eelf32ggx.c: $(srcdir)/emulparams/elf32ggx.sh \
++  $(ELF_GEN_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++	${GENSCRIPTS} elf32ggx "$(tdir_ggx)"
+ eelf32mcore.c: $(srcdir)/emulparams/elf32mcore.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf32mcore "$(tdir_mcore)"
+diff -r 64e6cff31a49 ld/configure.tgt
+--- a/ld/configure.tgt	Mon Mar 10 08:34:10 2008 -0700
++++ b/ld/configure.tgt	Tue Mar 11 11:28:14 2008 -0700
+@@ -151,6 +151,8 @@ fr30-*-*)		targ_emul=elf32fr30
+ 			;;
+ frv-*-*linux*)		targ_emul=elf32frvfd ;;
+ frv-*-*)		targ_emul=elf32frv ; targ_extra_emuls="elf32frvfd"
++			;;
++ggx-*-*)		targ_emul=elf32ggx 
+ 			;;
+ h8300-*-hms* | h8300-*-coff* | h8300-*-rtemscoff*)
+ 			targ_emul=h8300; targ_extra_emuls="h8300h h8300s h8300hn h8300sn h8300sx h8300sxn" ;;
+diff -r 64e6cff31a49 ld/emulparams/elf32ggx.sh
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/ld/emulparams/elf32ggx.sh	Tue Mar 11 11:28:14 2008 -0700
+@@ -0,0 +1,7 @@
++SCRIPT_NAME=elf
++TEMPLATE_NAME=generic
++EXTRA_EM_FILE=genelf
++OUTPUT_FORMAT="elf32-ggx"
++TEXT_START_ADDR=0x1000
++MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
++ARCH=ggx
+diff -r 64e6cff31a49 ld/scripttempl/ggx.sc
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/ld/scripttempl/ggx.sc	Tue Mar 11 11:28:14 2008 -0700
+@@ -0,0 +1,50 @@
++TORS=".tors :
++  {
++    ___ctors = . ;
++    *(.ctors)
++    ___ctors_end = . ;
++    ___dtors = . ;
++    *(.dtors)
++    ___dtors_end = . ;
++  } > ram"
++
++cat <<EOF
++OUTPUT_FORMAT("${OUTPUT_FORMAT}")
++OUTPUT_ARCH(${ARCH})
++
++SECTIONS
++{
++  .text :
++  {
++    *(.text)
++    *(.strings)
++    ${RELOCATING+ _etext = . ; }
++  } ${RELOCATING+ > ram}
++  ${CONSTRUCTING+${TORS}}
++  .data :
++  {
++    *(.data)
++    ${RELOCATING+ _edata = . ; }
++  } ${RELOCATING+ > ram}
++  .bss :
++  {
++    ${RELOCATING+ _bss_start = . ; }
++    *(.bss)
++    *(COMMON)
++    ${RELOCATING+ _end = . ;  }
++  } ${RELOCATING+ > ram}
++  .stack ${RELOCATING+ 0x30000 }  :
++  {
++    ${RELOCATING+ _stack = . ; }
++    *(.stack)
++  } ${RELOCATING+ > ram}
++  .stab 0 ${RELOCATING+(NOLOAD)} :
++  {
++    *(.stab)
++  }
++  .stabstr 0 ${RELOCATING+(NOLOAD)} :
++  {
++    *(.stabstr)
++  }
++}
++EOF
