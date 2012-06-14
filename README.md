@@ -63,10 +63,7 @@ number of other formats as well.
 BFD is a backronym for Binary File Descriptor, but we all know it
 originally stood for Big F'ing Deal. The BFD manual puts it thusly:
 
-    The name came from a conversation David Wallace was having with
-    Richard Stallman about the library: RMS said that it would be
-    quite hard--David said "BFD". Stallman was right, but the name
-    stuck.
+> The name came from a conversation David Wallace was having with Richard Stallman about the library: RMS said that it would be quite hard--David said "BFD". Stallman was right, but the name stuck.
 
 David Henkel-Wallace (aka Gumby) was one of Cygnus' founders, and, at
 least as I recall, his California license plate at one time was "GNU
