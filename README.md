@@ -1180,6 +1180,107 @@ Patches:
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
+Patch 18: libgloss, newlib and hello.c
+--------------------------------------
+
+We're almost at the next major milestone: building and running a Hello
+World program in C. But first, a quick recap...
+
+The ggx core is a simulated 32-bit load-store von Neumann architecture
+processor. It currently has 8 32-bit general purpose registers and 37
+instructions (a mix of 16- and 48-bits long).
+
+We're 17 patches into our experiment and as of yesterday we can
+configure, build and install gas, ld, binutils, a simulator and the
+GCC C compiler and runtime support library. There's no doubt these
+things still all need work, but today we'll turn our attention towards
+newlib and libgloss.
+
+Newlib is a standard C library, much like glibc on Linux. It was
+originally cobbled together by folks at Cygnus in order to offer a
+liberally licensed C library to their embedded tools customers. It's
+still maintained by Jeff Johnston (now at Red Hat) and is widely used
+by embedded developers and the Cygwin community (newlib provides the
+standard C library in cygwin.dll).
+
+libgloss is a little more difficult to describe. Rob Savoye (dejagnu,
+gnash) once told me it was called libgloss because you use it to
+"gloss" over details when don't have an OS on your embedded system. It
+sits between newlib and your hardware or simulator, and exports a
+system call interface to newlib so C programs can interact with it.
+
+Let's say, for instance, that you have a MIPS-based single board
+computer with a serial port for I/O. You would need to port libgloss
+to that specific board so that reading and writing through newlib
+routines (printf, etc) would send data up and down the board's serial
+port. It's an important element of what you might refer to as a Board
+Support Package (BSP). In fact, the libgloss sources build a library
+called "libbsp.a", not "libgloss.a". libgloss provides a few more
+things (a gdb remote protocol stub for instance), but we're not going
+to worry about these things for now.
+
+For ggx, we'll need to implement some kind of trap instruction so
+libgloss can talk to the simulator. Then we'll implement systems calls
+for things like "write". In the case of "write" we'll send output to
+the console on the machine running the sim. But let's worry about that
+tomorrow. I've just stuck "bad" instructions in libgloss' syscall
+stubs for now. Today's focus is to generate fully built libraries for
+libgloss and newlib.
+
+The changes are all pretty obvious, and there's lots of sample code in
+other ports to copy. That being said, the patches are a little on the
+big side, mostly because of the new autotool generated configury.  As
+usual, I've placed them in the ggx patch archive.
+
+If you apply the src patches for newlib/libgloss, then configure and
+build with ggx-elf-gcc, you'll find that you have two new libraries:
+libbsp.a (from libgloss) and libc.a (from newlib). Install them now,
+and let's try a hello world:
+
+    #include <stdio.h>
+    
+    int main()
+    {
+      puts ("Hello World!");
+      return 0;
+    }
+ 
+
+If you try compiling this like so: ggx-elf-gcc -o hello hello.c, you'll be presented with pages and pages of linker errors that look like this:
+
+    strlen.c:(.text+0x1a): undefined reference to `__andsi3'
+    strlen.c:(.text+0x56): undefined reference to `__ashlsi3'
+    strlen.c:(.text+0x5e): undefined reference to `__ashrsi3'
+    strlen.c:(.text+0x8e): undefined reference to `__ashlsi3'
+    strlen.c:(.text+0xb2): undefined reference to `__subsi3'
+    strlen.c:(.text+0xdc): undefined reference to `__one_cmplsi2'
+    strlen.c:(.text+0x116): undefined reference to `__one_cmplsi2'
+
+What are these, you ask? They're all references to functions that GCC
+is trying to use in place of missing instructions.
+
+GCC uses a clever trick during code generation. Let's say it you have
+some C code that looks like this: "a = b & c", where a, b and c are
+all ints. GCC needs to generate code to "and" b and c together. If it
+can't figure out how to do this, it will simply emit a call to a
+function with a special name (__andsi3 in this case) and hope that the
+user will provide a library implementation at link time. Try poking
+around in the linux kernel sources and you'll see that a few ports
+provide their own versions of "missing" instructions.
+
+In our case, we have yet to implement any of these instructions. They
+represent (in order), logical and, arithmetic shift left, arithmetic
+shift right, subtraction, and bitwise "not". These are just the
+missing instructions required by newlib's strlen(). In total, there
+are about 9 instructions missing in order to complete the Hello World
+link. Tomorrow we'll add all 9 instructions to the ISA and link our
+first full application. But will it run? Tune in tomorrow...
+
+Patches:
+* http://github.com/atgreen/ggx/blob/master/ggx-18-src.patch
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 Patch 19: Hello World!
 ----------------------
 
