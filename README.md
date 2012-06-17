@@ -182,7 +182,7 @@ We're very close to having a working assembler for ggx. There's just
 one more infrastructure step to take care of first.
 
 Patches:
-* http://github.com/atgreen/ggx/blob/master/ggx-03-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-02-src.patch
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -220,7 +220,7 @@ Before we do that, we'll take our first major step tomorrow by
 creating a working assembler.
 
 Patches:
-* http://github.com/atgreen/ggx/blob/master/ggx-04-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-03-src.patch
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -270,7 +270,7 @@ information but, of course, it can't disassemble ggx instructions. We
 need a ggx-elf-objdump for that, and that's what we'll build tomorrow.
 
 Patches:
-* http://github.com/atgreen/ggx/blob/master/ggx-05-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-04-src.patch
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
