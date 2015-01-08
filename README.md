@@ -20,8 +20,7 @@ today, but as a teaching tool they still have value.
 The experimental 'ggx' target was eventually renamed to 'moxie', and
 work continues here:
 * http://moxielogic.org/blog
-* http://moxielogic.org/wiki
-* http://github.com/atgreen/moxiedev
+* http://github.com/atgreen/moxie-cores
 
 I'd love to hear from people who found this useful or who have
 questions.  I can be reached at green@moxielogic.com.
@@ -1175,8 +1174,8 @@ behaviour, but it does let us rip out a bunch of repetitive code.
 last patch)
 
 Patches:
-* http://github.com/atgreen/ggx/blob/master/ggx-18-src.patch
-* http://github.com/atgreen/ggx/blob/master/ggx-18-gcc.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-17-src.patch
+* http://github.com/atgreen/ggx/blob/master/ggx-17-gcc.patch
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -1557,4 +1556,5 @@ Patches:
 FIN.
 
 
-The Adventure Continues at http://github.com/atgreen/moxiedev
+The Adventure Continues at http://moxielogic.org
+
